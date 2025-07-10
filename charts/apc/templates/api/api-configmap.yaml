@@ -6,5 +6,11 @@ data:
   # Your environment variables go here
   APC_LOGS: "/logs/"
   APC_API_HOST: {{ .Values.api.host | quote }}
+  APC_API_CORS: {{ .Values.api.cors | quote }}
   APC_REDIS_HOST: {{ .Values.redis.host | quote }}
   APC_MONGO_STR: "mongodb://{{ .Values.mongo.user }}:{{ .Values.mongo.pass }}@{{ .Values.mongo.host }}:{{ .Values.mongo.port }}/"
+  
+  # OIDC configuration
+  APC_OIDC_HOST: {{ .Values.api.oidc.host | quote }}
+  APC_OIDC_CLIENT_ID: {{ .Values.api.oidc.client.id | quote }}
+  APC_OIDC_CLIENT_SECRET: {{ .Values.api.oidc.client.secret | quote }}
