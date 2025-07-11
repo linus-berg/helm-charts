@@ -31,12 +31,10 @@ api:
   loadBalancerIP: 192.168.49.100
   port: 8004
   replicas: 4
-  cors: "https://gui.apc.io"
-  oidc:
-    host: "https://idp.apc.io/realms/apc"
-    client:
-      id: "apc"
-      secret: "xx"
+  keycloak:
+    host: "http://localhost:8090"
+    realm: "master"
+    resource: "apc"
 
 # Ingestion
 ingestion:
