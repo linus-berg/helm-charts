@@ -3,20 +3,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: apm-{{ .id }}
+  name: processor-{{ .id }}
   labels:
-    app: apm-{{ .id }}
+    app: processor-{{ .id }}
 spec:
   replicas: {{ .replicas }}
   selector:
     matchLabels:
-      app: apm-{{ .id }}
+      app: processor-{{ .id }}
   template:
     metadata:
       labels:
-        app: apm-{{ .id }}
+        app: processor-{{ .id }}
       annotations:
-        apc/version: {{ $.Values.apc.version }}
+        backpack/version: {{ $.Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") $ | sha256sum }}
     spec:
       {{- if .imagePullSecrets }}
@@ -42,7 +42,7 @@ spec:
             name: common-env-config
       {{- end }}
       containers:
-        - name: apm-{{ .id }}
+        - name: processor-{{ .id }}
           image: {{ .image }}:{{ .tag }}
           {{- if $.Values.ca_certificates }}
           volumeMounts:

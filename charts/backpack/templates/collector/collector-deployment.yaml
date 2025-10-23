@@ -3,22 +3,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: acm-{{ .id }}
+  name: collector-{{ .id }}
   labels:
-    app: acm-{{ .id }}
+    app: collector-{{ .id }}
 spec:
   replicas: {{ .replicas }}
   selector:
     matchLabels:
-      app: acm-{{ .id }}
+      app: collector-{{ .id }}
   template:
     metadata:
       labels:
-        app: acm-{{ .id }}
+        app: collector-{{ .id }}
       annotations:
-        apc/version: {{ $.Values.apc.version }}
+        backpack/version: {{ $.Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") $ | sha256sum }}
-        checksum/acm-config: {{ include (print $.Template.BasePath "/acm/acm-configmap.yaml") $ | sha256sum }}
+        checksum/collector-config: {{ include (print $.Template.BasePath "/collector/collector-configmap.yaml") $ | sha256sum }}
     spec:
       {{- if $.Values.hosts }}
       hostAliases:
@@ -37,7 +37,7 @@ spec:
             name: common-env-config
       {{- end }}
       containers:
-        - name: acm-{{ .id }}
+        - name: collector-{{ .id }}
           image: {{ .image }}:{{ .tag }}
           {{- if $.Values.ca_certificates }}
           volumeMounts:
@@ -56,5 +56,5 @@ spec:
             - configMapRef:
                 name: common-env-config
             - configMapRef:
-                name: acm-env-config
+                name: collector-env-config
 {{- end}}

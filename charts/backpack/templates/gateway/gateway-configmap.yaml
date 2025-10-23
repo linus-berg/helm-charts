@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-env-config
+data:
+  # Your environment variables go here
+  BP_REDIS_HOST: {{ .Values.redis.host | quote }}
+  BP_MONGO_STR: "mongodb://{{ .Values.mongo.user }}:{{ .Values.mongo.pass }}@{{ .Values.mongo.host }}:{{ .Values.mongo.port }}/"

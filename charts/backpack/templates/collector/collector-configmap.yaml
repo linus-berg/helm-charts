@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: collector-env-config
+data:
+  # Your environment variables go here
+  BP_S3_ACCESS_KEY: {{ .Values.s3.accessKey | quote }}
+  BP_S3_SECRET_KEY: {{ .Values.s3.secretKey | quote }}
+  BP_S3_REGION: {{ .Values.s3.region | quote }}
+  BP_S3_ENDPOINT: {{ .Values.s3.endpoint | quote }}
+  BP_S3_BUCKET: {{ .Values.s3.bucket | quote }}
+  BP_COLLECTOR_DIRECTORY: "/data"
+  

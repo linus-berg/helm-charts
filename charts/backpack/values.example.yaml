@@ -1,9 +1,9 @@
-# Default values for APC-Helm.
+# Default values for Backpack-Helm.
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-apc:
-  version: &apc_version "fe27ea40be7f5e6d4d358ffbd7215681b5b7cd2c"
+backpack:
+  version: &backpack_version "fe27ea40be7f5e6d4d358ffbd7215681b5b7cd2c"
   log:
     level: Information
 
@@ -34,7 +34,7 @@ api:
   keycloak:
     host: "http://localhost:8090"
     realm: "master"
-    resource: "apc"
+    resource: "backpack"
 
 # Ingestion
 ingestion:
@@ -68,39 +68,39 @@ redis:
 #otel:
   #host: "otel"
 
-# ACM specific
+# Collector specific
 s3:
-  accessKey: "minio-apc"
-  secretKey: "minio-apc"
+  accessKey: "minio-bp"
+  secretKey: "minio-bp"
   region: ""
   endpoint: "host.minikube.internal:9000"
-  bucket: "apc"
+  bucket: "backpack"
 
 ##
 collectors:
   - id: "http"
-    image: "ghcr.io/linus-berg/apc/acm/http"
-    tag: *apc_version
+    image: "ghcr.io/linus-berg/backpack/collector/http"
+    tag: *backpack_version
     replicas: 1
     volumes:
       - mountPath: /data
   - id: "git"
-    image: "ghcr.io/linus-berg/apc/acm/git"
-    tag: *apc_version
+    image: "ghcr.io/linus-berg/backpack/collector/git"
+    tag: *backpack_version
     replicas: 1
     volumes:
       - mountPath: /data
   - id: "container"
-    image: "ghcr.io/linus-berg/apc/acm/container"
-    tag: *apc_version
+    image: "ghcr.io/linus-berg/backpack/collector/container"
+    tag: *backpack_version
     replicas: 1
     volumes:
       - mountPath: /data
 
 processors:
   - id: "npm"
-    image: "ghcr.io/linus-berg/apc/apm/npm"
-    tag: *apc_version
+    image: "ghcr.io/linus-berg/backpack/processor/npm"
+    tag: *backpack_version
     replicas: 1
     imagePullSecrets: 
       - test
@@ -108,28 +108,28 @@ processors:
       - name: TEST
         value: BLEH
   - id: nuget
-    image: ghcr.io/linus-berg/apc/apm/nuget
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/nuget
+    tag: *backpack_version
     replicas: 1
   
   - id: pypi
-    image: ghcr.io/linus-berg/apc/apm/pypi
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/pypi
+    tag: *backpack_version
     replicas: 1
     
   - id: container
-    image: ghcr.io/linus-berg/apc/apm/container
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/container
+    tag: *backpack_version
     replicas: 1
     
   - id: rancher
-    image: ghcr.io/linus-berg/apc/apm/rancher
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/rancher
+    tag: *backpack_version
     replicas: 1
     
   - id: helm
-    image: ghcr.io/linus-berg/apc/apm/helm
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/helm
+    tag: *backpack_version
     replicas: 1
     env:
       - name: ARTIFACTHUB_API_KEY_ID
@@ -138,21 +138,21 @@ processors:
         value: xxxx
     
   - id: jetbrains
-    image: ghcr.io/linus-berg/apc/apm/jetbrains
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/jetbrains
+    tag: *backpack_version
     replicas: 1
     
   - id: jetbrains-ide
-    image: ghcr.io/linus-berg/apc/apm/jetbrains/ide
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/jetbrains/ide
+    tag: *backpack_version
     replicas: 1
   
   - id: php
-    image: ghcr.io/linus-berg/apc/apm/php
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/php
+    tag: *backpack_version
     replicas: 1
   
   - id: github-releases
-    image: ghcr.io/linus-berg/apc/apm/github/releases
-    tag: *apc_version
+    image: ghcr.io/linus-berg/backpack/processor/github/releases
+    tag: *backpack_version
     replicas: 1

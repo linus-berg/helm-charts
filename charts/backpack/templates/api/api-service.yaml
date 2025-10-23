@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: apc-api
+  name: backpack-api
 spec:
   ports:
     - protocol: TCP
@@ -11,4 +11,4 @@ spec:
   type: LoadBalancer
   loadBalancerIP: {{ .Values.api.loadBalancerIP }}
   selector:
-    app: apc-api
+    app: backpack-api

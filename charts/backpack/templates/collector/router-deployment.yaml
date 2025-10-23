@@ -1,21 +1,21 @@
 ---
-# ACM Router (routes to the correct protocol collector)
+# Collector Router (routes to the correct protocol collector)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: acm-router
+  name: collector-router
 spec:
   replicas: {{ .Values.router.replicas }} 
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: acm-router
+      app: collector-router
   template:
     metadata:
       labels:
-        app: acm-router
+        app: collector-router
       annotations:
-        apc/version: {{ .Values.apc.version }}
+        backpack/version: {{ .Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
     spec:
       {{- if $.Values.hosts }}
@@ -29,8 +29,8 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-        - image: ghcr.io/linus-berg/apc/acm/router:{{ .Values.apc.version }} 
-          name: acm-router
+        - image: ghcr.io/linus-berg/backpack/collector/router:{{ .Values.backpack.version }} 
+          name: collector-router
           envFrom:
             - configMapRef:
                 name: common-env-config

@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: apc-gui
+  name: backpack-gui
 spec:
   ports:
     - protocol: TCP
@@ -11,4 +11,4 @@ spec:
   type: LoadBalancer
   loadBalancerIP: {{ .Values.gui.loadBalancerIP }}
   selector:
-    app: apc-gui
+    app: backpack-gui

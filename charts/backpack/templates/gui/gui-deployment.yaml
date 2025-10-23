@@ -2,22 +2,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: apc-gui
+  name: backpack-gui
 spec:
   replicas: {{ required ".Values.gui.replicas must be set" .Values.gui.replicas }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: apc-gui
+      app: backpack-gui
   template:
     metadata:
       labels:
-        app: apc-gui
+        app: backpack-gui
       annotations:
-        apc/version: {{ .Values.gui.version }}
+        backpack/version: {{ .Values.gui.version }}
     spec:
       containers:
-        - image: ghcr.io/linus-berg/apc/gui:{{ required ".Values.gui.version must be set" .Values.gui.version }} 
-          name: apc-gui
+        - image: ghcr.io/linus-berg/backpack/gui:{{ required ".Values.gui.version must be set" .Values.gui.version }} 
+          name: backpack-gui
           ports:
           - containerPort: 80

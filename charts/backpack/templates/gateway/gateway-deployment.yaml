@@ -2,21 +2,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: apc-ingestion
+  name: backpack-gateway
 spec:
-  replicas: {{ required ".Values.ingestion.replicas must be set" .Values.ingestion.replicas }}
+  replicas: {{ required ".Values.gateway.replicas must be set" .Values.ingestion.replicas }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
-      app: apc-ingestion
+      app: backpack-gateway
   template:
     metadata:
       labels:
-        app: apc-ingestion
+        app: backpack-gateway
       annotations:
-        apc/version: {{ .Values.apc.version }}
+        backpack/version: {{ .Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
-        checksum/ingestion-config: {{ include (print $.Template.BasePath "/ingestion/ingestion-configmap.yaml") . | sha256sum }}
+        checksum/gateway-config: {{ include (print $.Template.BasePath "/ingestion/ingestion-configmap.yaml") . | sha256sum }}
     spec:
       {{- if $.Values.hosts }}
       hostAliases:
@@ -29,10 +29,10 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-        - image: ghcr.io/linus-berg/apc/ingestion:{{ required ".Values.apc.version version must be set" .Values.apc.version }} 
-          name: apc-ingestion
+        - image: ghcr.io/linus-berg/backpack/core/gateway:{{ required ".Values.backpack.version version must be set" .Values.backpack.version }} 
+          name: backpack-gateway
           envFrom:
             - configMapRef:
                 name: common-env-config
             - configMapRef:
-                name: ingestion-env-config
+                name: gateway-env-config
