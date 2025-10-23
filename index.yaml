@@ -81,4 +81,15 @@ entries:
     urls:
     - https://github.com/linus-berg/helm-charts/releases/download/apc-0.1.0/apc-0.1.0.tgz
     version: 0.1.0
-generated: "2025-07-11T05:59:56.210593034Z"
+  backpack:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-10-23T20:41:29.745632778Z"
+    description: A Helm chart for running backpack
+    digest: 11b945250e6bbcaba0b103197875da3613ac17d4c1a0e5ea644c2020dc4ab125
+    name: backpack
+    type: application
+    urls:
+    - https://github.com/linus-berg/helm-charts/releases/download/backpack-0.0.1/backpack-0.0.1.tgz
+    version: 0.0.1
+generated: "2025-10-23T20:41:29.745658917Z"
