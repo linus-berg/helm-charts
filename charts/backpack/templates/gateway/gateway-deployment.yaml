@@ -16,7 +16,7 @@ spec:
       annotations:
         backpack/version: {{ .Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
-        checksum/gateway-config: {{ include (print $.Template.BasePath "/ingestion/ingestion-configmap.yaml") . | sha256sum }}
+        checksum/gateway-config: {{ include (print $.Template.BasePath "/gateway/gateway-configmap.yaml") . | sha256sum }}
     spec:
       {{- if $.Values.hosts }}
       hostAliases:
