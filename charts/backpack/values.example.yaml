@@ -52,6 +52,7 @@ router:
 
 # General settings
 rabbitmq:
+  api: http://host.minikube.internal:15672
   host: host.minikube.internal
   user: guest
   pass: guest
