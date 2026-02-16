@@ -5,4 +5,6 @@ metadata:
 data:
   # Your environment variables go here
   BP_REDIS_HOST: {{ .Values.redis.host | quote }}
+  BP_REDIS_USER: {{ .Values.redis.user | quote }}
+  BP_REDIS_PASS: {{ .Values.redis.pass | quote }}
   BP_MONGO_STR: "mongodb://{{ .Values.mongo.user }}:{{ .Values.mongo.pass }}@{{ .Values.mongo.host }}:{{ .Values.mongo.port }}/"

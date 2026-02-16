@@ -65,6 +65,8 @@ mongo:
 
 redis:
   host: "host.minikube.internal"
+  user: "default"
+  pass: "example"
 
 #otel:
   #host: "otel"

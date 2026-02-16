@@ -7,5 +7,7 @@ data:
   BP_LOGS: "/logs/"
   BP_API_HOST: {{ .Values.api.host | quote }}
   BP_REDIS_HOST: {{ .Values.redis.host | quote }}
+  BP_REDIS_USER: {{ .Values.redis.user | quote }}
+  BP_REDIS_PASS: {{ .Values.redis.pass | quote }}
   BP_RABBIT_MQ_API: {{ .Values.rabbitmq.api | quote }}
   BP_MONGO_STR: "mongodb://{{ .Values.mongo.user }}:{{ .Values.mongo.pass }}@{{ .Values.mongo.host }}:{{ .Values.mongo.port }}/"
