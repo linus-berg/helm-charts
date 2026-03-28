@@ -1,0 +1,23 @@
+{{- range .Values.collectors }}
+{{- $collectorId := .id }}
+{{- if .extraVolumes }}
+{{- range .extraVolumes }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: collector-{{ $collectorId }}-{{ .name }}
+  labels:
+    app: collector-{{ $collectorId }}
+spec:
+  accessModes:
+    - {{ .accessMode | default "ReadWriteOnce" }}
+  resources:
+    requests:
+      storage: {{ .size | default "1Gi" }}
+  {{- if .storageClass }}
+  storageClassName: {{ .storageClass }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

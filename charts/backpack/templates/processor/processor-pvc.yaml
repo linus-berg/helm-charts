@@ -1,0 +1,23 @@
+{{- range .Values.processors }}
+{{- $processorId := .id }}
+{{- if .extraVolumes }}
+{{- range .extraVolumes }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: processor-{{ $processorId }}-{{ .name }}
+  labels:
+    app: processor-{{ $processorId }}
+spec:
+  accessModes:
+    - {{ .accessMode | default "ReadWriteOnce" }}
+  resources:
+    requests:
+      storage: {{ .size | default "1Gi" }}
+  {{- if .storageClass }}
+  storageClassName: {{ .storageClass }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

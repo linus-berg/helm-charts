@@ -85,26 +85,40 @@ collectors:
     image: "ghcr.io/linus-berg/backpack/collector/http"
     tag: *backpack_version
     replicas: 1
-    volumes:
-      - mountPath: /data
+    extraVolumes:
+      - name: data
+        mountPath: /data
+        storageClass: standard
+        size: 10Gi
   - id: "git"
     image: "ghcr.io/linus-berg/backpack/collector/git"
     tag: *backpack_version
     replicas: 1
-    volumes:
-      - mountPath: /data
+    extraVolumes:
+      - name: data
+        mountPath: /data
+        storageClass: standard
+        size: 10Gi
   - id: "container"
     image: "ghcr.io/linus-berg/backpack/collector/container"
     tag: *backpack_version
     replicas: 1
-    volumes:
-      - mountPath: /data
+    extraVolumes:
+      - name: data
+        mountPath: /data
+        storageClass: standard
+        size: 10Gi
 
 processors:
   - id: "npm"
     image: "ghcr.io/linus-berg/backpack/processor/npm"
     tag: *backpack_version
     replicas: 1
+    extraVolumes:
+      - name: cache
+        mountPath: /root/.npm
+        storageClass: standard
+        size: 5Gi
     imagePullSecrets: 
       - test
     env:

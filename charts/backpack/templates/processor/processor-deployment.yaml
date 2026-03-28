@@ -35,21 +35,37 @@ spec:
           {{- end }}
         {{- end }}
       {{- end }}
-      {{- if $.Values.ca_certificates }}
+      {{- if or $.Values.ca_certificates .extraVolumes }}
       volumes:
+        {{- if $.Values.ca_certificates }}
         - name: ca-certificates-config-volume
           configMap:
             name: common-env-config
+        {{- end }}
+        {{- if .extraVolumes }}
+        {{- $processorId := .id }}
+        {{- range .extraVolumes }}
+        - name: {{ .name }}
+          persistentVolumeClaim:
+            claimName: processor-{{ $processorId }}-{{ .name }}
+        {{- end }}
+        {{- end }}
       {{- end }}
       containers:
         - name: processor-{{ .id }}
           image: {{ .image }}:{{ .tag }}
-          {{- if $.Values.ca_certificates }}
           volumeMounts:
+            {{- if $.Values.ca_certificates }}
             - mountPath: /etc/ssl/certs/ca-certificates.crt 
               name: ca-certificates-config-volume
               subPath: ca-certificates.crt
-          {{- end }}
+            {{- end }}
+            {{- if .extraVolumes }}
+            {{- range .extraVolumes }}
+            - mountPath: {{ .mountPath }}
+              name: {{ .name }}
+            {{- end }}
+            {{- end }}
           {{- if .env }}
           env:
             {{- range $key, $val := .env }}
