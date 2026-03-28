@@ -84,6 +84,16 @@ entries:
   backpack:
   - apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-03-28T17:52:05.173584267Z"
+    description: A Helm chart for running backpack
+    digest: d96b50999372762b9b293a8198de7634438eea55c14d5d18eb9b26c433a8d738
+    name: backpack
+    type: application
+    urls:
+    - https://github.com/linus-berg/helm-charts/releases/download/backpack-0.0.5/backpack-0.0.5.tgz
+    version: 0.0.5
+  - apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-02-16T23:05:56.624696707Z"
     description: A Helm chart for running backpack
     digest: f47be0f708eab231dc4968f7f281be9e174ff33741abb8100eb1beaeda770662
@@ -122,4 +132,4 @@ entries:
     urls:
     - https://github.com/linus-berg/helm-charts/releases/download/backpack-0.0.1/backpack-0.0.1.tgz
     version: 0.0.1
-generated: "2026-02-16T23:05:56.624728806Z"
+generated: "2026-03-28T17:52:05.173618451Z"
