@@ -25,16 +25,17 @@ hosts:
 ca_certificates: |
   test
 
+# Authentication (OIDC)
+oidc:
+  authority: "http://localhost:8090/realms/master"
+  audience: "backpack"
+
 # API
 api:
   host: "localhost"
   loadBalancerIP: 192.168.49.100
   port: 8004
   replicas: 4
-  keycloak:
-    host: "http://localhost:8090"
-    realm: "master"
-    resource: "backpack"
 
 # Ingestion
 ingestion:

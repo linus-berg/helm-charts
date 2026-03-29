@@ -7,6 +7,8 @@ data:
   BP_RABBIT_MQ_HOST: {{ required ".Values.rabbitmq.host must be set" .Values.rabbitmq.host | quote }}
   BP_RABBIT_MQ_USER: {{ required ".Values.rabbitmq.user must be set" .Values.rabbitmq.user | quote }}
   BP_RABBIT_MQ_PASS: {{ required ".Values.rabbitmq.pass must be set" .Values.rabbitmq.pass | quote }}
+  OIDC_AUTHORITY: {{ .Values.oidc.authority | quote }}
+  OIDC_AUDIENCE: {{ .Values.oidc.audience | quote }}
 {{- if .Values.otel }}
   BP_OTEL_HOST: {{ .Values.otel.host | quote }}
 {{- end }}
