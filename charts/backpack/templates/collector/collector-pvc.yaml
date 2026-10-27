@@ -1,6 +1,7 @@
 {{- range .Values.collectors }}
 {{- $collectorId := .id }}
-{{- if .extraVolumes }}
+{{- /* StatefulSet collectors claim per replica through volumeClaimTemplates. */}}
+{{- if and .extraVolumes (eq (include "backpack.collector.kind" .) "Deployment") }}
 {{- range .extraVolumes }}
 ---
 apiVersion: v1

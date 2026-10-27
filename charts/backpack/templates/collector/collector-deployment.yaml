@@ -1,4 +1,5 @@
 {{- range $.Values.collectors }}
+{{- if eq (include "backpack.collector.kind" .) "Deployment" }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -12,65 +13,6 @@ spec:
     matchLabels:
       app: collector-{{ .id }}
   template:
-    metadata:
-      labels:
-        app: collector-{{ .id }}
-      annotations:
-        backpack/version: {{ $.Values.backpack.version }}
-        checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") $ | sha256sum }}
-        checksum/collector-config: {{ include (print $.Template.BasePath "/collector/collector-configmap.yaml") $ | sha256sum }}
-    spec:
-      {{- if $.Values.hosts }}
-      hostAliases:
-        {{- range $.Values.hosts }}
-        - ip: {{ .ip | quote }}
-          hostnames:
-          {{- range .hostnames }}
-            - {{ . | quote }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
-      {{- if or $.Values.ca_certificates .extraVolumes }}
-      volumes:
-        {{- if $.Values.ca_certificates }}
-        - name: ca-certificates-config-volume
-          configMap:
-            name: common-env-config
-        {{- end }}
-        {{- if .extraVolumes }}
-        {{- $collectorId := .id }}
-        {{- range .extraVolumes }}
-        - name: {{ .name }}
-          persistentVolumeClaim:
-            claimName: collector-{{ $collectorId }}-{{ .name }}
-        {{- end }}
-        {{- end }}
-      {{- end }}
-      containers:
-        - name: collector-{{ .id }}
-          image: {{ .image }}:{{ .tag }}
-          volumeMounts:
-            {{- if $.Values.ca_certificates }}
-            - mountPath: /etc/ssl/certs/ca-certificates.crt 
-              name: ca-certificates-config-volume 
-              subPath: ca-certificates.crt
-            {{- end }}
-            {{- if .extraVolumes }}
-            {{- range .extraVolumes }}
-            - mountPath: {{ .mountPath }}
-              name: {{ .name }}
-            {{- end }}
-            {{- end }}
-          {{- if .env }}
-          env:
-            {{- range $key, $val := .env }}
-            - name: {{ $val.name }}
-              value: {{ $val.value | quote }}
-            {{- end }}
-          {{- end }}
-          envFrom:
-            - configMapRef:
-                name: common-env-config
-            - configMapRef:
-                name: collector-env-config
-{{- end}}
+    {{- include "backpack.collector.podTemplate" (dict "root" $ "collector" .) | nindent 4 }}
+{{- end }}
+{{- end }}

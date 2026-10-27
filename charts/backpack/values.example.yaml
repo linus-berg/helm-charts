@@ -91,10 +91,18 @@ collectors:
         mountPath: /data
         storageClass: standard
         size: 10Gi
+  # Git keeps a `git clone --mirror` of every repository under /data and only
+  # fetches what changed on the next collect. As a StatefulSet each replica
+  # gets its own claim that survives restarts, rollouts and uninstalls.
+  # See "Collector storage" in README.md before changing replicas or volumes.
   - id: "git"
     image: "ghcr.io/linus-berg/backpack/collector/git"
     tag: *backpack_version
+    kind: StatefulSet
     replicas: 1
+    #persistentVolumeClaimRetentionPolicy:
+      #whenDeleted: Retain
+      #whenScaled: Retain
     extraVolumes:
       - name: data
         mountPath: /data
