@@ -83,6 +83,32 @@ entries:
     version: 0.1.0
   backpack:
   - apiVersion: v2
+    appVersion: master-912427283a6d8d338673dd4962c77d970ecd5e51
+    created: "2026-10-31T14:16:14.635339824Z"
+    description: Backpack, an engine for hoarding artifacts in disconnected environments.
+      Deploys the API, GUI, gateway, collector router, collectors and processors.
+    digest: 85a2b195ce3aac2b84b7d318338ccb05994c707002a7f6f0df8cbd414484fe74
+    home: https://linus-berg.github.io/backpack/
+    icon: https://raw.githubusercontent.com/linus-berg/backpack/master/images/backpack-256.png
+    keywords:
+    - artifacts
+    - mirror
+    - air-gapped
+    - offline
+    kubeVersion: '>=1.21.0-0'
+    maintainers:
+    - name: linus-berg
+      url: https://github.com/linus-berg
+    name: backpack
+    sources:
+    - https://github.com/linus-berg/backpack
+    - https://github.com/linus-berg/backpack-gui
+    - https://github.com/linus-berg/helm-charts
+    type: application
+    urls:
+    - https://github.com/linus-berg/helm-charts/releases/download/backpack-0.2.0/backpack-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
     appVersion: master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201
     created: "2026-10-31T11:11:30.790128041Z"
     description: Backpack, an engine for hoarding artifacts in disconnected environments.
@@ -208,4 +234,4 @@ entries:
     urls:
     - https://github.com/linus-berg/helm-charts/releases/download/backpack-0.0.1/backpack-0.0.1.tgz
     version: 0.0.1
-generated: "2026-10-31T11:11:30.791123112Z"
+generated: "2026-10-31T14:16:14.635384097Z"
