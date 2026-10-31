@@ -1,0 +1,12 @@
+{{- if .Values.ca_certificates }}
+# Mounted over /etc/ssl/certs/ca-certificates.crt in the API, collectors and
+# processors. Kept apart from common-env-config, which pods load with envFrom,
+# so the bundle is not also injected into every container as an environment
+# variable.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ca-certificates
+data:
+  ca-certificates.crt: {{ .Values.ca_certificates | quote }}
+{{- end }}

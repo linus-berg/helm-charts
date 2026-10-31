@@ -16,7 +16,10 @@ spec:
       annotations:
         backpack/version: {{ .Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") . | sha256sum }}
         checksum/api-config: {{ include (print $.Template.BasePath "/api/api-configmap.yaml") . | sha256sum }}
+        checksum/api-secret: {{ include (print $.Template.BasePath "/api/api-secret.yaml") . | sha256sum }}
+        checksum/ca-certificates: {{ include (print $.Template.BasePath "/ca-certificates-configmap.yaml") . | sha256sum }}
     spec:
       {{- if $.Values.hosts }}
       hostAliases:
@@ -32,7 +35,7 @@ spec:
       volumes:
         - name: ca-certificates-config-volume
           configMap:
-            name: common-env-config
+            name: ca-certificates
       {{- end }}
       containers:
         - image: ghcr.io/linus-berg/backpack/integration/api:{{ .Values.backpack.version }} 
@@ -46,7 +49,11 @@ spec:
           envFrom:
             - configMapRef:
                 name: common-env-config
+            - secretRef:
+                name: common-env-secret
             - configMapRef:
                 name: api-env-config
+            - secretRef:
+                name: api-env-secret
           ports:
           - containerPort: 80

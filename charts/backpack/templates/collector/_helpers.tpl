@@ -27,7 +27,10 @@ metadata:
   annotations:
     backpack/version: {{ $root.Values.backpack.version }}
     checksum/config: {{ include (print $root.Template.BasePath "/common-configmap.yaml") $root | sha256sum }}
+    checksum/secret: {{ include (print $root.Template.BasePath "/common-secret.yaml") $root | sha256sum }}
     checksum/collector-config: {{ include (print $root.Template.BasePath "/collector/collector-configmap.yaml") $root | sha256sum }}
+    checksum/collector-secret: {{ include (print $root.Template.BasePath "/collector/collector-secret.yaml") $root | sha256sum }}
+    checksum/ca-certificates: {{ include (print $root.Template.BasePath "/ca-certificates-configmap.yaml") $root | sha256sum }}
 spec:
   {{- if $root.Values.hosts }}
   hostAliases:
@@ -44,7 +47,7 @@ spec:
     {{- if $root.Values.ca_certificates }}
     - name: ca-certificates-config-volume
       configMap:
-        name: common-env-config
+        name: ca-certificates
     {{- end }}
     {{- if $claims }}
     {{- range $collector.extraVolumes }}
@@ -77,6 +80,10 @@ spec:
       envFrom:
         - configMapRef:
             name: common-env-config
+        - secretRef:
+            name: common-env-secret
         - configMapRef:
             name: collector-env-config
+        - secretRef:
+            name: collector-env-secret
 {{- end -}}

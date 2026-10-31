@@ -17,6 +17,7 @@ spec:
       annotations:
         backpack/version: {{ .Values.backpack.version }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") . | sha256sum }}
     spec:
       {{- if $.Values.hosts }}
       hostAliases:
@@ -34,3 +35,5 @@ spec:
           envFrom:
             - configMapRef:
                 name: common-env-config
+            - secretRef:
+                name: common-env-secret

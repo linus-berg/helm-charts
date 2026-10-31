@@ -1,3 +1,5 @@
+# Non-sensitive settings read by every component except the GUI. Credentials
+# are in common-env-secret.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -6,7 +8,6 @@ data:
   LOGGING__LOGLEVEL__DEFAULT: {{ required ".Values.backpack.log.level must be set" .Values.backpack.log.level | quote }}
   BP_RABBIT_MQ_HOST: {{ required ".Values.rabbitmq.host must be set" .Values.rabbitmq.host | quote }}
   BP_RABBIT_MQ_USER: {{ required ".Values.rabbitmq.user must be set" .Values.rabbitmq.user | quote }}
-  BP_RABBIT_MQ_PASS: {{ required ".Values.rabbitmq.pass must be set" .Values.rabbitmq.pass | quote }}
   BP_OIDC_AUTHORITY: {{ .Values.oidc.authority | quote }}
   BP_OIDC_AUDIENCE: {{ .Values.oidc.audience | quote }}
 {{- if .Values.otel }}
@@ -15,13 +16,4 @@ data:
 {{- if .Values.no_proxy }}
   NO_PROXY: {{ (join "," .Values.no_proxy) | quote }}
   no_proxy: {{ (join "," .Values.no_proxy) | quote }}
-{{- end }}
-{{- if .Values.http_proxy }}
-  HTTP_PROXY: {{ .Values.http_proxy | quote }}
-  HTTPS_PROXY: {{ .Values.http_proxy | quote }}
-  http_proxy: {{ .Values.http_proxy | quote }}
-  https_proxy: {{ .Values.http_proxy | quote }}
-{{- end }}
-{{- if .Values.ca_certificates }}
-  ca-certificates.crt: {{ .Values.ca_certificates | quote }}
 {{- end }}

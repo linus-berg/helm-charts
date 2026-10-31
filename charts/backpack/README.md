@@ -33,10 +33,17 @@ helm install backpack backpack/backpack -n backpack --create-namespace -f my-val
 Resource names are fixed (`backpack-api`, `collector-git`, ...) rather than
 prefixed with the release name, so install one release per namespace.
 
-> **Credentials are stored in ConfigMaps.** RabbitMQ, MongoDB, Redis and S3
-> credentials end up in plain ConfigMaps (`common-env-config`,
-> `api-env-config`, `gateway-env-config`, `collector-env-config`). Restrict
-> read access to ConfigMaps in the namespace accordingly.
+> **Credentials are stored in Secrets.** The RabbitMQ and Redis passwords,
+> the MongoDB connection string, the S3 keys and `http_proxy` go into
+> `common-env-secret`, `api-env-secret`, `gateway-env-secret` and
+> `collector-env-secret`. The other settings stay in the matching
+> `*-env-config` ConfigMaps. Two things are not covered:
+>
+> - Helm stores the full values, credentials included, in its release Secret
+>   (`sh.helm.release.v1.<release>.v<revision>`), so anyone who can read
+>   Secrets in the namespace can read them there too.
+> - `env` entries of collectors and processors, such as the Helm processor's
+>   ArtifactHub keys, are written into the Deployment in plain text.
 
 ## What gets deployed
 
@@ -50,8 +57,11 @@ prefixed with the release name, so install one release per namespace.
 | `processor-<id>` | Deployment | per entry in `processors` |
 | `collector-<id>-<volume>`, `processor-<id>-<volume>` | PersistentVolumeClaim | one per `extraVolumes` entry of a Deployment |
 | `common-env-config`, `api-env-config`, `gateway-env-config`, `collector-env-config` | ConfigMap | |
+| `ca-certificates` | ConfigMap, only when `ca_certificates` is set | |
+| `common-env-secret`, `api-env-secret`, `gateway-env-secret`, `collector-env-secret` | Secret | |
 
-Pods are restarted automatically when the ConfigMaps they read change.
+Pods are restarted automatically when the ConfigMaps and Secrets they read
+change.
 
 ## Configuration
 
@@ -65,10 +75,10 @@ services you deploy need.
 | :--- | :--- | :--- |
 | `backpack.version` | Image tag for the API, gateway and router (*required*). Usually also anchored as the `tag` of collectors and processors. | |
 | `backpack.log.level` | Default .NET log level (`LOGGING__LOGLEVEL__DEFAULT`) (*required*). | |
-| `http_proxy` | Sets `HTTP_PROXY`/`HTTPS_PROXY` (both cases) for the API, gateway, router, collectors and processors. The Git collector also uses it as `git config http.proxy`. | unset |
+| `http_proxy` | Sets `HTTP_PROXY`/`HTTPS_PROXY` (both cases) for the API, gateway, router, collectors and processors. The Git collector also uses it as `git config http.proxy`. Stored in a Secret, since proxy URLs can carry credentials. | unset |
 | `no_proxy` | List of hosts, joined into `NO_PROXY`/`no_proxy`. | unset |
 | `hosts` | `hostAliases` entries (`ip`, `hostnames`) for every pod except the GUI. | unset |
-| `ca_certificates` | PEM bundle mounted over `/etc/ssl/certs/ca-certificates.crt` in the API, collectors and processors. It **replaces** the image's bundle, so include the public roots too if those services need to reach the internet. | unset |
+| `ca_certificates` | PEM bundle stored in the `ca-certificates` ConfigMap and mounted over `/etc/ssl/certs/ca-certificates.crt` in the API, collectors and processors. It **replaces** the image's bundle, so include the public roots too if those services need to reach the internet. | unset |
 | `oidc.authority` | OIDC realm URL (`BP_OIDC_AUTHORITY`). | |
 | `oidc.audience` | Expected `aud` claim / client ID (`BP_OIDC_AUDIENCE`). | |
 | `otel.host` | OpenTelemetry collector endpoint (`BP_OTEL_HOST`). | unset |
@@ -94,7 +104,7 @@ services you deploy need.
 | :--- | :--- | :--- |
 | `rabbitmq.host`, `rabbitmq.user`, `rabbitmq.pass` | RabbitMQ connection (*required*). | everything except the GUI |
 | `rabbitmq.api` | RabbitMQ management API URL. | API |
-| `mongo.host`, `mongo.port`, `mongo.user`, `mongo.pass` | Combined into `BP_MONGO_STR`. | API, gateway |
+| `mongo.host`, `mongo.port`, `mongo.user`, `mongo.pass` | Combined into `BP_MONGO_STR`. `user` and `pass` are percent-encoded by the chart, so give them unencoded. | API, gateway |
 | `redis.host`, `redis.user`, `redis.pass` | Redis connection. | API, gateway |
 | `s3.endpoint`, `s3.accessKey`, `s3.secretKey`, `s3.region`, `s3.bucket` | Object storage the collectors upload to. | collectors |
 
