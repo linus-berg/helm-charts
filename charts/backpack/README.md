@@ -42,8 +42,9 @@ prefixed with the release name, so install one release per namespace.
 > - Helm stores the full values, credentials included, in its release Secret
 >   (`sh.helm.release.v1.<release>.v<revision>`), so anyone who can read
 >   Secrets in the namespace can read them there too.
-> - `env` entries of collectors and processors, such as the Helm processor's
->   ArtifactHub keys, are written into the Deployment in plain text.
+> - `env` entries of collectors and processors that use `value` are written
+>   into the Deployment in plain text. Give credentials, such as the Helm
+>   processor's ArtifactHub keys, through `valueFrom.secretKeyRef` instead.
 
 ## What gets deployed
 
@@ -59,6 +60,7 @@ prefixed with the release name, so install one release per namespace.
 | `common-env-config`, `api-env-config`, `gateway-env-config`, `collector-env-config` | ConfigMap | |
 | `ca-certificates` | ConfigMap, only when `ca_certificates` is set | |
 | `common-env-secret`, `api-env-secret`, `gateway-env-secret`, `collector-env-secret` | Secret | |
+| same name as the workload, e.g. `backpack-api` | PodDisruptionBudget, only for workloads that set `podDisruptionBudget` (see [Pod settings](#pod-settings)) | |
 
 Pods are restarted automatically when the ConfigMaps and Secrets they read
 change.
@@ -82,6 +84,7 @@ services you deploy need.
 | `oidc.authority` | OIDC realm URL (`BP_OIDC_AUTHORITY`). | |
 | `oidc.audience` | Expected `aud` claim / client ID (`BP_OIDC_AUDIENCE`). | |
 | `otel.host` | OpenTelemetry collector endpoint (`BP_OTEL_HOST`). | unset |
+| `defaults` | Pod settings for every workload that doesn't set its own, see [Pod settings](#pod-settings). | unset |
 
 ### API, GUI, gateway and router
 
@@ -97,6 +100,8 @@ services you deploy need.
 | `gui.replicas` | GUI replicas (*required*). |
 | `ingestion.replicas` | Gateway replicas (*required*). |
 | `router.replicas` | Collector router replicas. |
+
+`api`, `gui`, `ingestion` and `router` also take the [pod settings](#pod-settings).
 
 ### Infrastructure
 
@@ -128,13 +133,15 @@ consumes is decided by its image, not by `id`:
 | `image`, `tag` | Container image. | |
 | `replicas` | Number of pods. | |
 | `kind` | `Deployment` or `StatefulSet`. | `Deployment` |
-| `env` | Extra environment variables, a list of `name`/`value`. | |
+| `env` | Extra environment variables. Each entry has a `name` and either a `value` or a `valueFrom` (e.g. `secretKeyRef`). | |
 | `extraVolumes[].name` | Volume name. | |
 | `extraVolumes[].mountPath` | Mount path in the container. Collectors work in `/data` (`BP_COLLECTOR_DIRECTORY`). | |
 | `extraVolumes[].size` | Requested storage. | `1Gi` |
 | `extraVolumes[].storageClass` | Storage class. | cluster default |
 | `extraVolumes[].accessMode` | Access mode. | `ReadWriteOnce` |
 | `persistentVolumeClaimRetentionPolicy` | StatefulSet only. `whenDeleted` / `whenScaled`, each `Retain` or `Delete`. Needs Kubernetes 1.27+. | Kubernetes default, `Retain` for both |
+
+Every entry also takes the [pod settings](#pod-settings).
 
 ### Processors
 
@@ -148,6 +155,75 @@ are the same as for collectors, minus `kind` and
 
 Some processors need credentials through `env`, for example the Helm
 processor reads `ARTIFACTHUB_API_KEY_ID` and `ARTIFACTHUB_API_KEY_SECRET`.
+Read them from a Secret so they stay out of the values and the pod spec:
+
+```bash
+kubectl create secret generic artifacthub --from-literal=id=... --from-literal=secret=...
+```
+
+```yaml
+processors:
+  - id: helm
+    image: ghcr.io/linus-berg/backpack/processor/helm
+    tag: *backpack_version
+    replicas: 1
+    env:
+      - name: ARTIFACTHUB_API_KEY_ID
+        valueFrom:
+          secretKeyRef: {name: artifacthub, key: id}
+      - name: ARTIFACTHUB_API_KEY_SECRET
+        valueFrom:
+          secretKeyRef: {name: artifacthub, key: secret}
+```
+
+### Pod settings
+
+`api`, `gui`, `ingestion` (the gateway), `router` and every entry of
+`collectors` and `processors` take these keys. None of them are set unless
+you set them.
+
+| Key | Sets | Falls back to `defaults.<key>` |
+| :--- | :--- | :--- |
+| `podSecurityContext` | Pod `securityContext`. | yes |
+| `securityContext` | Container `securityContext`. | yes |
+| `resources` | Container `resources`. | yes |
+| `nodeSelector`, `tolerations`, `affinity` | Pod scheduling. | yes |
+| `livenessProbe`, `readinessProbe`, `startupProbe` | Container probes. | no |
+| `podDisruptionBudget` | Creates a PodDisruptionBudget with this spec, named after the workload: `minAvailable` or `maxUnavailable` (not both), optionally `unhealthyPodEvictionPolicy`. The selector is filled in by the chart. | no |
+
+A workload's own value replaces the default as a whole, it is not merged
+with it. Set it to `{}` or `[]` to opt a workload out of a default:
+
+```yaml
+defaults:
+  tolerations:
+    - {key: dedicated, operator: Equal, value: backpack, effect: NoSchedule}
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+
+api:
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {memory: 1Gi}
+  readinessProbe:
+    tcpSocket: {port: 8080}
+  podDisruptionBudget:
+    maxUnavailable: 1
+
+gui:
+  tolerations: []   # schedule the GUI anywhere
+```
+
+- **Probes.** The chart sets none. The API listens on port 8080 and the GUI
+  on port 80. The chart declares no ports for the gateway, router,
+  collectors or processors, so probe those with `exec` unless you know the
+  port they listen on.
+- **Disruption budgets.** Prefer `maxUnavailable: 1`. A `minAvailable` equal
+  to the replica count (e.g. `minAvailable: 1` with one replica) blocks every
+  eviction, so node drains hang until it is removed.
+- **Security contexts.** Check what the image expects before setting
+  `runAsNonRoot` or `readOnlyRootFilesystem`. The npm processor, for
+  example, caches in `/root/.npm` and the API writes logs to `/logs/`.
 
 ## Collector storage
 

@@ -16,8 +16,14 @@ spec:
       annotations:
         backpack/version: {{ .Values.gui.version }}
     spec:
+      {{- with include "backpack.pod.settings" (dict "root" $ "workload" .Values.gui) | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       containers:
-        - image: ghcr.io/linus-berg/backpack/gui:{{ required ".Values.gui.version must be set" .Values.gui.version }} 
+        - image: ghcr.io/linus-berg/backpack/gui:{{ required ".Values.gui.version must be set" .Values.gui.version }}
           name: backpack-gui
+          {{- with include "backpack.container.settings" (dict "root" $ "workload" .Values.gui) | trim }}
+          {{- . | nindent 10 }}
+          {{- end }}
           ports:
           - containerPort: 80

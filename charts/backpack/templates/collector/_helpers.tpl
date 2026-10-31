@@ -32,6 +32,9 @@ metadata:
     checksum/collector-secret: {{ include (print $root.Template.BasePath "/collector/collector-secret.yaml") $root | sha256sum }}
     checksum/ca-certificates: {{ include (print $root.Template.BasePath "/ca-certificates-configmap.yaml") $root | sha256sum }}
 spec:
+  {{- with include "backpack.pod.settings" (dict "root" $root "workload" $collector) | trim }}
+  {{- . | nindent 2 }}
+  {{- end }}
   {{- if $root.Values.hosts }}
   hostAliases:
     {{- range $root.Values.hosts }}
@@ -60,6 +63,9 @@ spec:
   containers:
     - name: collector-{{ $collector.id }}
       image: {{ $collector.image }}:{{ $collector.tag }}
+      {{- with include "backpack.container.settings" (dict "root" $root "workload" $collector) | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       volumeMounts:
         {{- if $root.Values.ca_certificates }}
         - mountPath: /etc/ssl/certs/ca-certificates.crt
@@ -70,12 +76,9 @@ spec:
         - mountPath: {{ .mountPath }}
           name: {{ .name }}
         {{- end }}
-      {{- if $collector.env }}
+      {{- with $collector.env }}
       env:
-        {{- range $collector.env }}
-        - name: {{ .name }}
-          value: {{ .value | quote }}
-        {{- end }}
+        {{- include "backpack.env" . | trim | nindent 8 }}
       {{- end }}
       envFrom:
         - configMapRef:

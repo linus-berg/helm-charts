@@ -25,6 +25,23 @@ hosts:
 ca_certificates: |
   test
 
+# Pod settings for every workload that doesn't set its own. A workload's own
+# value replaces the default; set it to {} or [] to opt out. Probes and
+# podDisruptionBudget have no default. See "Pod settings" in README.md.
+#defaults:
+  #podSecurityContext:
+    #fsGroup: 1000
+  #securityContext:
+    #allowPrivilegeEscalation: false
+  #resources:
+    #requests:
+      #cpu: 50m
+      #memory: 128Mi
+  #nodeSelector:
+    #kubernetes.io/os: linux
+  #tolerations: []
+  #affinity: {}
+
 # Authentication (OIDC)
 oidc:
   authority: "http://localhost:8090/realms/master"
@@ -36,6 +53,16 @@ api:
   loadBalancerIP: 192.168.49.100
   port: 8004
   replicas: 4
+  # api, gui, ingestion, router and every collector and processor take the
+  # same pod settings, e.g.:
+  #resources:
+    #limits:
+      #memory: 1Gi
+  #readinessProbe:
+    #tcpSocket:
+      #port: 8080
+  #podDisruptionBudget:
+    #maxUnavailable: 1
 
 # Ingestion
 ingestion:
@@ -157,11 +184,19 @@ processors:
     image: ghcr.io/linus-berg/backpack/processor/helm
     tag: *backpack_version
     replicas: 1
+    # Read from a Secret, so the keys stay out of the values and the pod spec:
+    # kubectl create secret generic artifacthub --from-literal=id=... --from-literal=secret=...
     env:
       - name: ARTIFACTHUB_API_KEY_ID
-        value: xxxx
+        valueFrom:
+          secretKeyRef:
+            name: artifacthub
+            key: id
       - name: ARTIFACTHUB_API_KEY_SECRET
-        value: xxxx
+        valueFrom:
+          secretKeyRef:
+            name: artifacthub
+            key: secret
     
   - id: jetbrains
     image: ghcr.io/linus-berg/backpack/processor/jetbrains

@@ -1,0 +1,40 @@
+{{- /*
+One PodDisruptionBudget per workload that sets podDisruptionBudget, which is
+used as the PDB spec (minAvailable or maxUnavailable, optionally
+unhealthyPodEvictionPolicy). The selector is filled in by the chart.
+*/}}
+{{- $workloads := list
+  (dict "name" "backpack-api" "key" "api" "values" .Values.api)
+  (dict "name" "backpack-gui" "key" "gui" "values" .Values.gui)
+  (dict "name" "backpack-gateway" "key" "ingestion" "values" .Values.ingestion)
+  (dict "name" "collector-router" "key" "router" "values" .Values.router) }}
+{{- range .Values.collectors }}
+{{- $workloads = append $workloads (dict "name" (printf "collector-%s" .id) "key" (printf "collectors[%s]" .id) "values" .) }}
+{{- end }}
+{{- range .Values.processors }}
+{{- $workloads = append $workloads (dict "name" (printf "processor-%s" .id) "key" (printf "processors[%s]" .id) "values" .) }}
+{{- end }}
+{{- range $workloads }}
+{{- $name := .name }}
+{{- $key := .key }}
+{{- with (.values | default (dict)).podDisruptionBudget }}
+{{- if and (hasKey . "minAvailable") (hasKey . "maxUnavailable") }}
+{{- fail (printf "%s.podDisruptionBudget: set minAvailable or maxUnavailable, not both" $key) }}
+{{- end }}
+{{- if hasKey . "selector" }}
+{{- fail (printf "%s.podDisruptionBudget: selector is set by the chart" $key) }}
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  {{- toYaml . | nindent 2 }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+{{- end }}
+{{- end }}

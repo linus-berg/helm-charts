@@ -20,6 +20,9 @@ spec:
         checksum/gateway-config: {{ include (print $.Template.BasePath "/gateway/gateway-configmap.yaml") . | sha256sum }}
         checksum/gateway-secret: {{ include (print $.Template.BasePath "/gateway/gateway-secret.yaml") . | sha256sum }}
     spec:
+      {{- with include "backpack.pod.settings" (dict "root" $ "workload" .Values.ingestion) | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       {{- if $.Values.hosts }}
       hostAliases:
         {{- range $.Values.hosts }}
@@ -33,6 +36,9 @@ spec:
       containers:
         - image: ghcr.io/linus-berg/backpack/core/gateway:{{ required ".Values.backpack.version version must be set" .Values.backpack.version }} 
           name: backpack-gateway
+          {{- with include "backpack.container.settings" (dict "root" $ "workload" .Values.ingestion) | trim }}
+          {{- . | nindent 10 }}
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: common-env-config

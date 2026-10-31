@@ -1,0 +1,46 @@
+Backpack {{ .Values.backpack.version }} (GUI {{ .Values.gui.version }}) is deployed to namespace {{ .Release.Namespace }}.
+
+The API and the GUI are exposed through LoadBalancer Services. Get their
+external addresses with:
+
+  kubectl get service -n {{ .Release.Namespace }} backpack-api backpack-gui
+
+{{- with .Values.collectors }}
+
+Collectors:
+{{- range . }}
+  - collector-{{ .id }}: {{ include "backpack.collector.kind" . }}, {{ ternary 1 .replicas (kindIs "invalid" .replicas) }} replica(s)
+{{- end }}
+{{- end }}
+{{- with .Values.processors }}
+
+Processors:
+{{- range . }}
+  - processor-{{ .id }}: {{ ternary 1 .replicas (kindIs "invalid" .replicas) }} replica(s)
+{{- end }}
+{{- end }}
+
+{{- range .Values.collectors }}
+{{- $env := list }}
+{{- range .env }}{{ $env = append $env .name }}{{ end }}
+{{- if and (contains "collector/container" (toString .image)) (not (has "BP_COLLECTOR_CONTAINER_REGISTRY" $env)) }}
+
+WARNING: collector-{{ .id }} has no BP_COLLECTOR_CONTAINER_REGISTRY in its env,
+so every collect fails. Set it to the registry images are copied into.
+{{- end }}
+{{- end }}
+
+{{- $claims := list }}
+{{- range .Values.collectors }}
+{{- $policy := .persistentVolumeClaimRetentionPolicy | default (dict) }}
+{{- if and .extraVolumes (eq (include "backpack.collector.kind" .) "StatefulSet") (ne ($policy.whenDeleted | default "") "Delete") }}
+{{- $claims = append $claims (printf "collector-%s" .id) }}
+{{- end }}
+{{- end }}
+{{- if $claims }}
+
+The volume claims of {{ join ", " $claims }} are created by Kubernetes, not
+Helm, and stay behind after "helm uninstall". List them with:
+
+  kubectl get pvc -n {{ .Release.Namespace }} -l 'app in ({{ join "," $claims }})'
+{{- end }}

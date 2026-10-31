@@ -21,6 +21,9 @@ spec:
         checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") $ | sha256sum }}
         checksum/ca-certificates: {{ include (print $.Template.BasePath "/ca-certificates-configmap.yaml") $ | sha256sum }}
     spec:
+      {{- with include "backpack.pod.settings" (dict "root" $ "workload" .) | trim }}
+      {{- . | nindent 6 }}
+      {{- end }}
       {{- if .imagePullSecrets }}
       imagePullSecrets:
         {{- range .imagePullSecrets }}
@@ -56,6 +59,9 @@ spec:
       containers:
         - name: processor-{{ .id }}
           image: {{ .image }}:{{ .tag }}
+          {{- with include "backpack.container.settings" (dict "root" $ "workload" .) | trim }}
+          {{- . | nindent 10 }}
+          {{- end }}
           volumeMounts:
             {{- if $.Values.ca_certificates }}
             - mountPath: /etc/ssl/certs/ca-certificates.crt 
@@ -68,12 +74,9 @@ spec:
               name: {{ .name }}
             {{- end }}
             {{- end }}
-          {{- if .env }}
+          {{- with .env }}
           env:
-            {{- range $key, $val := .env }}
-            - name: {{ $val.name }}
-              value: {{ $val.value | quote }}
-            {{- end }}
+            {{- include "backpack.env" . | trim | nindent 12 }}
           {{- end }}
           envFrom:
             - configMapRef:
