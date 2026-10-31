@@ -7,6 +7,28 @@
     "credential": {
       "type": ["string", "number"]
     },
+    "hostCredential": {
+      "description": "Credential for one host: either token (stored in credentials-secret) or tokenSecret (a Secret you manage). The chart checks that exactly one is set.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "username": {
+          "description": "Account that owns the token. Backpack defaults to x-access-token.",
+          "type": "string",
+          "minLength": 1
+        },
+        "token": { "$ref": "#/definitions/credential" },
+        "tokenSecret": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "key"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "key": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
     "tag": {
       "type": ["string", "number"]
     },
@@ -161,6 +183,10 @@
                 "not": { "required": ["value", "valueFrom"] }
               }
             },
+            "mountCredentials": {
+              "description": "Mount the credentials for private sources and set BP_CREDENTIALS_FILE.",
+              "type": "boolean"
+            },
             "extraVolumes": {
               "type": "array",
               "items": {
@@ -230,8 +256,17 @@
         "common": { "type": "string" },
         "api": { "type": "string" },
         "gateway": { "type": "string" },
-        "collector": { "type": "string" }
+        "collector": { "type": "string" },
+        "credentials": { "type": "string" }
       }
+    },
+    "credentials": {
+      "description": "Credentials for private sources, keyed by host or host:port. Mounted into workers that set mountCredentials.",
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9]([-A-Za-z0-9.]*[A-Za-z0-9])?(:[0-9]{1,5})?$"
+      },
+      "additionalProperties": { "$ref": "#/definitions/hostCredential" }
     },
     "defaults": { "$ref": "#/definitions/podSettings" },
     "api": {

@@ -123,6 +123,16 @@ s3:
   #api: backpack-api
   #gateway: backpack-api
   #collector: backpack-s3
+  #credentials: backpack-credentials
+
+# Credentials for private repositories, e.g. on a GitHub Enterprise instance.
+# Only the collectors with mountCredentials: true get them.
+#credentials:
+  #ghe.example.com:
+    #username: backpack-mirror
+    #tokenSecret:
+      #name: ghe-token
+      #key: token
 
 # Every entry runs the latest image (backpack.version) unless it sets its own
 # tag.
@@ -147,6 +157,8 @@ collectors:
         mountPath: /data
         storageClass: standard
         size: 10Gi
+    # Needed to mirror private repositories, see credentials above.
+    #mountCredentials: true
   # Copies images registry to registry, needs no volume.
   - id: "container"
     image: "ghcr.io/linus-berg/backpack/collector/container"

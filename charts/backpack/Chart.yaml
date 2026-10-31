@@ -4,11 +4,11 @@ description: Backpack, an engine for hoarding artifacts in disconnected environm
 type: application
 # Chart version, bump it on every change. Pushing a new version to main
 # publishes it.
-version: 0.1.0
+version: 0.2.0
 # Backpack image tag used when backpack.version is not set: the latest build
 # of github.com/linus-berg/backpack, which publishes master-<commit>. Bump it
 # together with gui.version in values.yaml.
-appVersion: "master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201"
+appVersion: "master-912427283a6d8d338673dd4962c77d970ecd5e51"
 # policy/v1 PodDisruptionBudgets.
 kubeVersion: ">=1.21.0-0"
 home: https://linus-berg.github.io/backpack/

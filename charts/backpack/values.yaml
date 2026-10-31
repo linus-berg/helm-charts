@@ -48,6 +48,25 @@ existingSecrets:
   gateway: ""
   # Replaces collector-env-secret: BP_S3_ACCESS_KEY, BP_S3_SECRET_KEY.
   collector: ""
+  # Replaces credentials-secret: credentials.json plus the token files it
+  # names under /run/secrets/backpack/. See "Private sources" in README.md.
+  credentials: ""
+
+# Credentials for private sources, such as repositories on a GitHub
+# Enterprise instance, keyed by host or host:port. Mounted only into the
+# collectors and processors that set mountCredentials: true. See
+# "Private sources" in README.md, e.g.
+#   ghe.example.com:
+#     username: backpack-mirror
+#     # Stored in credentials-secret...
+#     token: ghp_...
+#   ghe.internal.example.com:8443:
+#     username: backpack-mirror
+#     # ...or read from a Secret you manage.
+#     tokenSecret:
+#       name: ghe-token
+#       key: token
+credentials: {}
 
 # Pod settings of every workload that doesn't set its own. A workload's own
 # value replaces the default as a whole; set it to {} or [] to opt out. See
@@ -105,7 +124,7 @@ api:
 gui:
   image: ghcr.io/linus-berg/backpack/gui
   # Image tag of the GUI, which is versioned separately from backpack.version.
-  version: "d7218050fc21d460f47d83a7e9b38915e97053ef"
+  version: "c7d4ea5ef82a83f30742090a70c86881103d7444"
   replicas: 1
   # Service port, forwarded to container port 80.
   port: 80
@@ -168,6 +187,8 @@ s3:
 #       - name: data
 #         mountPath: /data
 #         size: 100Gi
+#     # Mirror private repositories with the credentials above.
+#     mountCredentials: true
 collectors: []
 
 # One entry per processor, see "Processors" in README.md, e.g.

@@ -50,6 +50,40 @@ Backpack {{ include "backpack.version" . }} (GUI {{ .Values.gui.version }}) is d
 {{- end }}
 {{- end }}
 
+{{- $credentialsInfo := "" }}
+{{- if include "backpack.credentials.enabled" . }}
+{{- $mounted := list }}
+{{- $gitWithout := list }}
+{{- range $type, $workers := dict "collector" .Values.collectors "processor" .Values.processors }}
+{{- range $workers }}
+{{- $name := include "backpack.worker.name" (dict "root" $ "worker" . "type" $type) }}
+{{- if .mountCredentials }}
+{{- $mounted = append $mounted $name }}
+{{- else if and (eq $type "collector") (contains "collector/git" (toString .image)) }}
+{{- $gitWithout = append $gitWithout $name }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $existing := get (.Values.existingSecrets | default (dict)) "credentials" }}
+{{- $source := ternary (printf "the Secret %s" $existing) (printf "%s" (join ", " (keys .Values.credentials | sortAlpha))) (not (empty $existing)) }}
+{{- if $mounted }}
+{{- $credentialsInfo = printf "Credentials for private sources (%s) are mounted into: %s." $source (join ", " $mounted) }}
+{{- else }}
+{{- $warnings = append $warnings "Credentials for private sources are configured, but no collector or processor sets mountCredentials: true, so none of them can use them." }}
+{{- end }}
+{{- range $gitWithout }}
+{{- $warnings = append $warnings (printf "%s does not set mountCredentials: true, so it cannot mirror private repositories." .) }}
+{{- end }}
+{{- if and .Values.credentials $existing }}
+{{- $warnings = append $warnings (printf "Both credentials and existingSecrets.credentials are set. The Secret %s is used and the credentials values are ignored." $existing) }}
+{{- end }}
+{{- end }}
+
+{{- with $credentialsInfo }}
+
+{{ . }}
+{{- end }}
+
 {{- range $warnings }}
 
 WARNING: {{ . }}

@@ -82,6 +82,7 @@ the mirror needs credentials.
 | `common-env-config`, `api-env-config`, `gateway-env-config`, `collector-env-config` | ConfigMap | |
 | `ca-certificates` | ConfigMap, only when `ca_certificates` is set | |
 | `common-env-secret`, `api-env-secret`, `gateway-env-secret`, `collector-env-secret` | Secret, unless replaced through `existingSecrets` | |
+| `credentials-secret` | Secret, only when `credentials` is set and not replaced through `existingSecrets.credentials` | |
 | same name as the workload, e.g. `backpack-api` | PodDisruptionBudget, only for workloads that set `podDisruptionBudget` | |
 
 Every resource has the `app.kubernetes.io/name`, `app.kubernetes.io/instance`,
@@ -112,6 +113,7 @@ restart the pods yourself after changing them.
 | `oidc.audience` | Expected `aud` claim / client ID (`BP_OIDC_AUDIENCE`). | |
 | `otel.host` | OpenTelemetry collector endpoint (`BP_OTEL_HOST`). | unset |
 | `existingSecrets.*` | Secrets you manage, see [Credentials](#credentials). | unset |
+| `credentials` | Credentials for private sources, keyed by host, see [Private sources](#private-sources). | unset |
 | `defaults.*` | Pod settings for every workload that doesn't set its own, see [Pod settings](#pod-settings). | unset |
 
 ### Credentials
@@ -125,6 +127,7 @@ other settings in the matching `*-env-config` ConfigMaps:
 | `api-env-secret` | `BP_REDIS_PASS`, `BP_MONGO_STR` | API |
 | `gateway-env-secret` | `BP_REDIS_PASS`, `BP_MONGO_STR` | gateway |
 | `collector-env-secret` | `BP_S3_ACCESS_KEY`, `BP_S3_SECRET_KEY` | collectors |
+| `credentials-secret` | `credentials.json` and a `token-<host>` per inline token, see [Private sources](#private-sources). Only created when `credentials` is set. | workers with `mountCredentials: true` |
 
 Two things are not covered by that:
 
@@ -154,6 +157,7 @@ existingSecrets:
   api: backpack-api
   gateway: backpack-api   # the gateway needs the same keys as the API
   collector: backpack-s3
+  credentials: backpack-credentials   # see Private sources
 ```
 
 `BP_MONGO_STR` is used as it is, so percent-encode special characters in
@@ -161,6 +165,92 @@ the username and password yourself (`@` is `%40`, `:` is `%3A`, `/` is
 `%2F`). With `existingSecrets.common`, put the proxy variables into that
 Secret too if you use a proxy. The usernames and hosts still come from the
 values.
+
+### Private sources
+
+Backpack can mirror repositories that need authentication, such as private
+repositories on a GitHub Enterprise instance. Credentials are looked up by
+host and only mounted into the collectors and processors that set
+`mountCredentials: true`. They never appear in artifact IDs, URLs or logs.
+This needs Backpack images with credential support; older images ignore
+`BP_CREDENTIALS_FILE`. Today the Git collector uses them.
+
+Create a personal access token for a machine user (e.g. `backpack-mirror`)
+with read access to the repositories, preferably a fine-grained token with
+*Contents: Read-only* (a classic token needs the `repo` scope), and
+configure it per host:
+
+```bash
+kubectl create secret generic ghe-token --from-literal=token=ghp_...
+```
+
+```yaml
+credentials:
+  # Key: the host, or host:port for a non-standard port.
+  ghe.example.com:
+    username: backpack-mirror      # the account that owns the token
+    tokenSecret:                   # a Secret you manage...
+      name: ghe-token
+      key: token
+  # ghe2.example.com:
+  #   username: backpack-mirror
+  #   token: ghp_...               # ...or inline, stored in credentials-secret
+
+collectors:
+  - id: git
+    image: ghcr.io/linus-berg/backpack/collector/git
+    kind: StatefulSet
+    mountCredentials: true
+    extraVolumes:
+      - name: data
+        mountPath: /data
+        size: 100Gi
+```
+
+Then add repositories to the `git` processor as usual, e.g.
+`git://ghe.example.com/my-org/my-repo`.
+
+| Key | Description |
+| :--- | :--- |
+| `credentials.<host>.username` | Account that owns the token. Backpack uses `x-access-token` when unset. |
+| `credentials.<host>.token` | The token, stored in `credentials-secret`. |
+| `credentials.<host>.tokenSecret.name`, `.key` | Read the token from this key of a Secret you manage instead. |
+
+Each host needs exactly one of `token` and `tokenSecret`.
+
+How it works: workers with `mountCredentials: true` get a read-only volume
+at `/run/secrets/backpack` holding `credentials.json` and one file per token
+in `tokens/`, and `BP_CREDENTIALS_FILE` pointing at `credentials.json`.
+
+- **Rotating a token.** Update the Secret holding it. Kubernetes refreshes
+  the mounted file within a minute or two, and Backpack reads token files on
+  every fetch, so no restart is needed.
+- **Adding or removing a host** changes `credentials.json`, which Backpack
+  reads at startup. The workers that mount it restart on `helm upgrade`;
+  with `existingSecrets.credentials`, restart them yourself.
+- **Every Git collector needs `mountCredentials`.** All collectors with the
+  same image consume the same queue, so a private repository can be picked
+  up by any of them. `helm install` and `helm upgrade` warn about Git
+  collectors without it.
+
+To manage the whole file yourself, create a Secret with a `credentials.json`
+key and name it in `existingSecrets.credentials`. The chart then mounts that
+Secret as it is and ignores `credentials`. Point `token_file` at the
+mounted keys:
+
+```json
+{
+  "ghe.example.com": {
+    "username": "backpack-mirror",
+    "token_file": "/run/secrets/backpack/ghe-token"
+  }
+}
+```
+
+```bash
+kubectl create secret generic backpack-credentials \
+  --from-file=credentials.json --from-literal=ghe-token=ghp_...
+```
 
 ### API, GUI, gateway and router
 
@@ -250,6 +340,7 @@ Processor images: `processor/npm`, `processor/nuget`, `processor/pypi`,
 | `kind` | `Deployment` or `StatefulSet`. | `Deployment` |
 | `strategy` | Deployment only. The Deployment strategy, see [Collector storage](#collector-storage) for the default. | |
 | `env` | Extra environment variables. Each entry has a `name` and either a `value` or a `valueFrom` (e.g. `secretKeyRef`). | |
+| `mountCredentials` | Mount the [credentials for private sources](#private-sources) and set `BP_CREDENTIALS_FILE`. | `false` |
 | `extraVolumes[].name` | Volume name. | |
 | `extraVolumes[].mountPath` | Mount path in the container. Collectors work in `/data` (`BP_COLLECTOR_DIRECTORY`). | |
 | `extraVolumes[].type` | `persistentVolumeClaim`, or `emptyDir` for scratch space that lives as long as the pod. | `persistentVolumeClaim` |

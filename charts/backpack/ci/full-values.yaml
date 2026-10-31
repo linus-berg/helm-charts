@@ -21,6 +21,14 @@ otel:
   host: http://otel-collector:4317
 existingSecrets:
   collector: backpack-s3
+credentials:
+  ghe.example.com:
+    username: backpack-mirror
+    token: ghp_example
+  ghe.internal.example.com:8443:
+    tokenSecret:
+      name: ghe-token
+      key: token
 defaults:
   imagePullSecrets:
     - registry-a
@@ -121,6 +129,7 @@ collectors:
     image: ghcr.io/linus-berg/backpack/collector/git
     kind: StatefulSet
     replicas: 1
+    mountCredentials: true
     persistentVolumeClaimRetentionPolicy:
       whenDeleted: Retain
       whenScaled: Retain

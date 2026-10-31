@@ -81,7 +81,11 @@ Pod template shared by worker Deployments and StatefulSets.
 {{- $isDeployment := eq (include "backpack.worker.kind" .) "Deployment" -}}
 {{- $volumes := list -}}
 {{- $mounts := list -}}
+{{- $credentialsVolume := include "backpack.credentials.volumeName" $root -}}
 {{- range $worker.extraVolumes -}}
+{{- if eq .name $credentialsVolume -}}
+{{- fail (printf "%s.extraVolumes[%s]: the name %s is reserved for the credentials volume" (include "backpack.worker.key" $ctx) .name $credentialsVolume) -}}
+{{- end -}}
 {{- $mounts = append $mounts (dict "name" .name "mountPath" .mountPath) -}}
 {{- if eq (include "backpack.worker.volumeType" (dict "root" $ctx.root "worker" $ctx.worker "type" $ctx.type "volume" .)) "emptyDir" -}}
 {{- $volumes = append $volumes (dict "name" .name "emptyDir" (ternary (dict "sizeLimit" .size) (dict) (not (empty .size)))) -}}
@@ -89,6 +93,15 @@ Pod template shared by worker Deployments and StatefulSets.
 {{- /* StatefulSets get their claims from volumeClaimTemplates. */ -}}
 {{- $volumes = append $volumes (dict "name" .name "persistentVolumeClaim" (dict "claimName" (printf "%s-%s" $name .name))) -}}
 {{- end -}}
+{{- end -}}
+{{- $env := $worker.env | default (list) -}}
+{{- if $worker.mountCredentials -}}
+{{- if not (include "backpack.credentials.enabled" $root) -}}
+{{- fail (printf "%s.mountCredentials is true, but no credentials are configured. Set credentials or existingSecrets.credentials." (include "backpack.worker.key" $ctx)) -}}
+{{- end -}}
+{{- $volumes = append $volumes (include "backpack.credentials.volume" $root | fromYaml) -}}
+{{- $mounts = append $mounts (dict "name" $credentialsVolume "mountPath" (include "backpack.credentials.mountPath" $root) "readOnly" true) -}}
+{{- $env = prepend $env (dict "name" "BP_CREDENTIALS_FILE" "value" (printf "%s/credentials.json" (include "backpack.credentials.mountPath" $root))) -}}
 {{- end -}}
 metadata:
   labels:
@@ -102,6 +115,10 @@ metadata:
     checksum/collector-secret: {{ include (print $root.Template.BasePath "/collector/collector-secret.yaml") $root | sha256sum }}
     {{- end }}
     checksum/ca-certificates: {{ include (print $root.Template.BasePath "/ca-certificates-configmap.yaml") $root | sha256sum }}
+    {{- if $worker.mountCredentials }}
+    {{- /* Backpack reads credentials.json at startup, so changing it restarts the pods. */}}
+    checksum/credentials: {{ include (print $root.Template.BasePath "/credentials-secret.yaml") $root | sha256sum }}
+    {{- end }}
 spec:
   {{- with include "backpack.pod.spec" (dict "root" $root "workload" $worker "hostAliases" true "ca" true "volumes" $volumes) | trim }}
   {{- . | nindent 2 }}
@@ -112,7 +129,7 @@ spec:
       {{- with include "backpack.container.spec" (dict "root" $root "workload" $worker "ca" true "volumeMounts" $mounts) | trim }}
       {{- . | nindent 6 }}
       {{- end }}
-      {{- with $worker.env }}
+      {{- with $env }}
       env:
         {{- include "backpack.env" . | trim | nindent 8 }}
       {{- end }}
