@@ -3,6 +3,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gateway-env-config
+  labels:
+    {{- include "backpack.labels" (dict "root" $) | nindent 4 }}
 data:
   BP_REDIS_HOST: {{ .Values.redis.host | quote }}
   BP_REDIS_USER: {{ .Values.redis.user | quote }}

@@ -1,10 +1,11 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backpack-gateway
+  labels:
+    {{- include "backpack.labels" (dict "root" $ "name" "backpack-gateway" "component" "gateway") | nindent 4 }}
 spec:
-  replicas: {{ required ".Values.gateway.replicas must be set" .Values.ingestion.replicas }}
+  replicas: {{ required ".Values.ingestion.replicas must be set" .Values.ingestion.replicas }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
@@ -12,39 +13,29 @@ spec:
   template:
     metadata:
       labels:
-        app: backpack-gateway
+        {{- include "backpack.podLabels" (dict "root" $ "name" "backpack-gateway" "component" "gateway") | nindent 8 }}
       annotations:
-        backpack/version: {{ .Values.backpack.version }}
+        backpack/version: {{ .Values.ingestion.tag | default (include "backpack.version" $) | quote }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") . | sha256sum }}
         checksum/gateway-config: {{ include (print $.Template.BasePath "/gateway/gateway-configmap.yaml") . | sha256sum }}
         checksum/gateway-secret: {{ include (print $.Template.BasePath "/gateway/gateway-secret.yaml") . | sha256sum }}
     spec:
-      {{- with include "backpack.pod.settings" (dict "root" $ "workload" .Values.ingestion) | trim }}
+      {{- with include "backpack.pod.spec" (dict "root" $ "workload" .Values.ingestion "hostAliases" true) | trim }}
       {{- . | nindent 6 }}
       {{- end }}
-      {{- if $.Values.hosts }}
-      hostAliases:
-        {{- range $.Values.hosts }}
-        - ip: {{ .ip | quote }}
-          hostnames:
-          {{- range .hostnames }}
-            - {{ . | quote }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
       containers:
-        - image: ghcr.io/linus-berg/backpack/core/gateway:{{ required ".Values.backpack.version version must be set" .Values.backpack.version }} 
-          name: backpack-gateway
-          {{- with include "backpack.container.settings" (dict "root" $ "workload" .Values.ingestion) | trim }}
+        - name: backpack-gateway
+          image: {{ include "backpack.image" (dict "root" $ "workload" .Values.ingestion "key" "ingestion") }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.ingestion) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
           envFrom:
             - configMapRef:
                 name: common-env-config
             - secretRef:
-                name: common-env-secret
+                name: {{ include "backpack.secretName" (dict "root" $ "secret" "common") }}
             - configMapRef:
                 name: gateway-env-config
             - secretRef:
-                name: gateway-env-secret
+                name: {{ include "backpack.secretName" (dict "root" $ "secret" "gateway") }}

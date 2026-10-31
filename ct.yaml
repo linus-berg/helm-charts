@@ -1,0 +1,5 @@
+# chart-testing (ct) configuration, see https://github.com/helm/chart-testing.
+# ct lints every chart with each of its ci/*-values.yaml files.
+chart-dirs:
+  - charts
+target-branch: main

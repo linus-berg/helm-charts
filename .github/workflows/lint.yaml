@@ -1,0 +1,51 @@
+name: Lint Charts
+
+on:
+  pull_request:
+  # Called by the release workflow, so nothing is published unless this passes.
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.9.0
+
+      # On pull requests ct only lints the charts that changed, and fails if
+      # their version was not bumped.
+      - name: Lint changed charts
+        if: github.event_name == 'pull_request'
+        run: ct lint --config ct.yaml --target-branch "${{ github.event.repository.default_branch }}"
+
+      - name: Lint all charts
+        if: github.event_name != 'pull_request'
+        run: ct lint --config ct.yaml --all --check-version-increment=false
+
+      - name: Validate rendered manifests
+        run: |
+          for chart in charts/*/; do
+            for values in "$chart"ci/*-values.yaml "$chart"values.example.yaml; do
+              [ -f "$values" ] || continue
+              echo "::group::$values"
+              helm template ci "$chart" -f "$values" \
+                | docker run --rm -i ghcr.io/yannh/kubeconform:v0.8.0 -strict -summary
+              echo "::endgroup::"
+            done
+          done

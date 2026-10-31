@@ -1,11 +1,12 @@
----
-# Collector Router (routes to the correct protocol collector)
+# Collector router, routes every request to the queue of the collector for its protocol.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: collector-router
+  labels:
+    {{- include "backpack.labels" (dict "root" $ "name" "collector-router" "component" "router") | nindent 4 }}
 spec:
-  replicas: {{ .Values.router.replicas }} 
+  replicas: {{ .Values.router.replicas }}
   revisionHistoryLimit: 3
   selector:
     matchLabels:
@@ -13,33 +14,23 @@ spec:
   template:
     metadata:
       labels:
-        app: collector-router
+        {{- include "backpack.podLabels" (dict "root" $ "name" "collector-router" "component" "router") | nindent 8 }}
       annotations:
-        backpack/version: {{ .Values.backpack.version }}
+        backpack/version: {{ .Values.router.tag | default (include "backpack.version" $) | quote }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") . | sha256sum }}
     spec:
-      {{- with include "backpack.pod.settings" (dict "root" $ "workload" .Values.router) | trim }}
+      {{- with include "backpack.pod.spec" (dict "root" $ "workload" .Values.router "hostAliases" true) | trim }}
       {{- . | nindent 6 }}
       {{- end }}
-      {{- if $.Values.hosts }}
-      hostAliases:
-        {{- range $.Values.hosts }}
-        - ip: {{ .ip | quote }}
-          hostnames:
-          {{- range .hostnames }}
-            - {{ . | quote }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
       containers:
-        - image: ghcr.io/linus-berg/backpack/collector/router:{{ .Values.backpack.version }} 
-          name: collector-router
-          {{- with include "backpack.container.settings" (dict "root" $ "workload" .Values.router) | trim }}
+        - name: collector-router
+          image: {{ include "backpack.image" (dict "root" $ "workload" .Values.router "key" "router") }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.router) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
           envFrom:
             - configMapRef:
                 name: common-env-config
             - secretRef:
-                name: common-env-secret
+                name: {{ include "backpack.secretName" (dict "root" $ "secret" "common") }}

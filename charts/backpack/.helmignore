@@ -21,3 +21,5 @@
 .idea/
 *.tmproj
 .vscode/
+# Chart-testing values, not part of the package
+ci/

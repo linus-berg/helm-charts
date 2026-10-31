@@ -1,0 +1,7 @@
+{{- /* Optional Ingresses of the API and the GUI, see backpack.ingress. */}}
+{{- range $component, $name := dict "api" "backpack-api" "gui" "backpack-gui" }}
+{{- with include "backpack.ingress" (dict "root" $ "name" $name "component" $component "values" (get $.Values $component)) | trim }}
+---
+{{ . }}
+{{- end }}
+{{- end }}

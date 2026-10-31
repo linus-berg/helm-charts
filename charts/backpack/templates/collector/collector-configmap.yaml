@@ -3,6 +3,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: collector-env-config
+  labels:
+    {{- include "backpack.labels" (dict "root" $) | nindent 4 }}
 data:
   BP_S3_REGION: {{ .Values.s3.region | quote }}
   BP_S3_ENDPOINT: {{ .Values.s3.endpoint | quote }}

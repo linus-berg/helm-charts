@@ -1,46 +1,64 @@
-Backpack {{ .Values.backpack.version }} (GUI {{ .Values.gui.version }}) is deployed to namespace {{ .Release.Namespace }}.
+Backpack {{ include "backpack.version" . }} (GUI {{ .Values.gui.version }}) is deployed to namespace {{ .Release.Namespace }}.
+{{- range $component, $name := dict "API" "backpack-api" "GUI" "backpack-gui" }}
+{{- $values := get $.Values (lower $component) }}
+{{- $ingress := $values.ingress | default (dict) }}
+{{- $type := ($values.service | default (dict)).type | default "LoadBalancer" }}
 
-The API and the GUI are exposed through LoadBalancer Services. Get their
-external addresses with:
-
-  kubectl get service -n {{ .Release.Namespace }} backpack-api backpack-gui
-
-{{- with .Values.collectors }}
-
-Collectors:
-{{- range . }}
-  - collector-{{ .id }}: {{ include "backpack.collector.kind" . }}, {{ ternary 1 .replicas (kindIs "invalid" .replicas) }} replica(s)
+{{ $component }}:
+{{- if $ingress.enabled }}
+{{- range $ingress.hosts }}
+  {{ if $ingress.tls }}https{{ else }}http{{ end }}://{{ .host | default "<ingress address>" }}{{ (first (.paths | default (list (dict)))).path | default "/" }}
+{{- end }}
+{{- else if eq $type "LoadBalancer" }}
+  kubectl get service -n {{ $.Release.Namespace }} {{ $name }}   # EXTERNAL-IP, port {{ $values.port }}
+{{- else if eq $type "NodePort" }}
+  kubectl get service -n {{ $.Release.Namespace }} {{ $name }}   # node port mapped to {{ $values.port }}
+{{- else }}
+  kubectl port-forward -n {{ $.Release.Namespace }} service/{{ $name }} {{ $values.port }}
 {{- end }}
 {{- end }}
-{{- with .Values.processors }}
 
-Processors:
-{{- range . }}
-  - processor-{{ .id }}: {{ ternary 1 .replicas (kindIs "invalid" .replicas) }} replica(s)
-{{- end }}
-{{- end }}
+{{- $warnings := list }}
+{{- $claims := list }}
+{{- range $type, $workers := dict "collector" .Values.collectors "processor" .Values.processors }}
+{{- if $workers }}
 
-{{- range .Values.collectors }}
+{{ title $type }}s:
+{{- range $workers }}
+{{- $ctx := dict "root" $ "worker" . "type" $type }}
+{{- $name := include "backpack.worker.name" $ctx }}
+{{- $kind := include "backpack.worker.kind" $ctx }}
+{{- $replicas := ternary 1 .replicas (kindIs "invalid" .replicas) }}
+  - {{ $name }}: {{ $kind }}, {{ $replicas }} replica(s)
 {{- $env := list }}
 {{- range .env }}{{ $env = append $env .name }}{{ end }}
-{{- if and (contains "collector/container" (toString .image)) (not (has "BP_COLLECTOR_CONTAINER_REGISTRY" $env)) }}
-
-WARNING: collector-{{ .id }} has no BP_COLLECTOR_CONTAINER_REGISTRY in its env,
-so every collect fails. Set it to the registry images are copied into.
+{{- if and (eq $type "collector") (contains "collector/container" (toString .image)) (not (has "BP_COLLECTOR_CONTAINER_REGISTRY" $env)) }}
+{{- $warnings = append $warnings (printf "%s has no BP_COLLECTOR_CONTAINER_REGISTRY in its env, so every collect fails. Set it to the registry images are copied into." $name) }}
+{{- end }}
+{{- $volumeClaims := include "backpack.worker.claims" $ctx | fromYamlArray }}
+{{- if and $volumeClaims (eq $kind "StatefulSet") (ne ((.persistentVolumeClaimRetentionPolicy | default (dict)).whenDeleted | default "") "Delete") }}
+{{- $claims = append $claims $name }}
+{{- end }}
+{{- if and (eq $kind "Deployment") (gt (int $replicas) 1) }}
+{{- range $volumeClaims }}
+{{- if has (.accessMode | default "ReadWriteOnce") (list "ReadWriteOnce" "ReadWriteOncePod") }}
+{{- $warnings = append $warnings (printf "%s runs %d replicas on the %s claim %s-%s. Replicas on other nodes cannot attach it and stay Pending. Use one replica, a ReadWriteMany volume, or kind: StatefulSet." $name (int $replicas) (.accessMode | default "ReadWriteOnce") $name .name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- end }}
 
-{{- $claims := list }}
-{{- range .Values.collectors }}
-{{- $policy := .persistentVolumeClaimRetentionPolicy | default (dict) }}
-{{- if and .extraVolumes (eq (include "backpack.collector.kind" .) "StatefulSet") (ne ($policy.whenDeleted | default "") "Delete") }}
-{{- $claims = append $claims (printf "collector-%s" .id) }}
+{{- range $warnings }}
+
+WARNING: {{ . }}
 {{- end }}
-{{- end }}
+
 {{- if $claims }}
 
-The volume claims of {{ join ", " $claims }} are created by Kubernetes, not
-Helm, and stay behind after "helm uninstall". List them with:
+The volume claims of these StatefulSets are created by Kubernetes, not Helm,
+and stay behind after "helm uninstall": {{ join ", " $claims }}. List them with:
 
   kubectl get pvc -n {{ .Release.Namespace }} -l 'app in ({{ join "," $claims }})'
 {{- end }}

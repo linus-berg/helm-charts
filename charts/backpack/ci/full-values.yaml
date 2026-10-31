@@ -1,0 +1,201 @@
+# Uses every feature of the chart, so CI renders and validates every template
+# path. Not meant as an example, see values.example.yaml for that.
+backpack:
+  version: master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201
+http_proxy: "http://user:p%40ss@proxy.internal:3128"
+no_proxy:
+  - minio.internal
+  - .svc
+hosts:
+  - ip: 10.0.0.10
+    hostnames:
+      - minio.internal
+ca_certificates: |
+  -----BEGIN CERTIFICATE-----
+  MIIBszCCAVmgAwIBAgIUWgnRAXbAeuNbD1bAEo8Cx0iLtuowCgYIKoZIzj0EAwIw
+  -----END CERTIFICATE-----
+oidc:
+  authority: https://keycloak.internal/realms/backpack
+  audience: backpack
+otel:
+  host: http://otel-collector:4317
+existingSecrets:
+  collector: backpack-s3
+defaults:
+  imagePullSecrets:
+    - registry-a
+    - name: registry-b
+  podSecurityContext:
+    fsGroup: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  nodeSelector:
+    kubernetes.io/os: linux
+  tolerations:
+    - key: dedicated
+      operator: Equal
+      value: backpack
+      effect: NoSchedule
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 1
+          preference:
+            matchExpressions:
+              - key: node-role.kubernetes.io/backpack
+                operator: Exists
+api:
+  host: https://api.backpack.internal
+  replicas: 2
+  service:
+    type: ClusterIP
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    hosts:
+      - host: api.backpack.internal
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: backpack-api-tls
+        hosts:
+          - api.backpack.internal
+  resources:
+    limits:
+      memory: 1Gi
+  readinessProbe:
+    tcpSocket:
+      port: 8080
+  livenessProbe:
+    tcpSocket:
+      port: 8080
+  podDisruptionBudget:
+    maxUnavailable: 1
+gui:
+  replicas: 2
+  service:
+    type: NodePort
+    nodePort: 30080
+    annotations:
+      example.com/team: backpack
+  ingress:
+    enabled: true
+    hosts:
+      - host: backpack.internal
+  nodeSelector: {}
+  podDisruptionBudget:
+    minAvailable: 1
+ingestion:
+  replicas: 2
+  podDisruptionBudget:
+    maxUnavailable: 0
+router:
+  tag: master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201
+  replicas: 2
+  tolerations: []
+rabbitmq:
+  host: rabbitmq
+  user: backpack
+  pass: 12345
+  api: http://rabbitmq:15672
+mongo:
+  host: mongo
+  user: backpack
+  pass: "p@ss:w/rd"
+redis:
+  host: redis
+  user: default
+  pass: secret
+s3:
+  endpoint: minio.internal:9000
+  bucket: backpack
+collectors:
+  - id: git
+    image: ghcr.io/linus-berg/backpack/collector/git
+    kind: StatefulSet
+    replicas: 1
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+    startupProbe:
+      exec:
+        command:
+          - git
+          - --version
+    podDisruptionBudget:
+      maxUnavailable: 1
+    extraVolumes:
+      - name: data
+        mountPath: /data
+        size: 100Gi
+        storageClass: fast
+      - name: scratch
+        mountPath: /tmp
+        type: emptyDir
+  - id: docker-archive
+    image: ghcr.io/linus-berg/backpack/collector/docker-archive
+    replicas: 2
+    extraVolumes:
+      - name: data
+        mountPath: /data
+        type: emptyDir
+        size: 50Gi
+  - id: container
+    image: ghcr.io/linus-berg/backpack/collector/container
+    replicas: 1
+    env:
+      - name: BP_COLLECTOR_CONTAINER_REGISTRY
+        valueFrom:
+          configMapKeyRef:
+            name: registry
+            key: address
+      - name: RETRIES
+        value: 3
+      - name: VERBOSE
+        value: true
+processors:
+  - id: npm
+    image: ghcr.io/linus-berg/backpack/processor/npm
+    replicas: 1
+    extraVolumes:
+      - name: cache
+        mountPath: /root/.npm
+        size: 5Gi
+  - id: pypi
+    image: ghcr.io/linus-berg/backpack/processor/pypi
+    replicas: 2
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 1
+    extraVolumes:
+      - name: cache
+        mountPath: /cache
+        accessMode: ReadWriteMany
+        size: 5Gi
+  - id: huggingface
+    image: ghcr.io/linus-berg/backpack/processor/huggingface
+    kind: StatefulSet
+    replicas: 1
+    imagePullSecrets: []
+    extraVolumes:
+      - name: cache
+        mountPath: /cache
+        size: 20Gi
+  - id: helm
+    image: ghcr.io/linus-berg/backpack/processor/helm
+    tag: master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201
+    replicas: 1
+    env:
+      - name: ARTIFACTHUB_API_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: artifacthub
+            key: id

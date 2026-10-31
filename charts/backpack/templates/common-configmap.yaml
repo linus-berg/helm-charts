@@ -4,14 +4,16 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: common-env-config
+  labels:
+    {{- include "backpack.labels" (dict "root" $) | nindent 4 }}
 data:
   LOGGING__LOGLEVEL__DEFAULT: {{ required ".Values.backpack.log.level must be set" .Values.backpack.log.level | quote }}
   BP_RABBIT_MQ_HOST: {{ required ".Values.rabbitmq.host must be set" .Values.rabbitmq.host | quote }}
   BP_RABBIT_MQ_USER: {{ required ".Values.rabbitmq.user must be set" .Values.rabbitmq.user | quote }}
   BP_OIDC_AUTHORITY: {{ .Values.oidc.authority | quote }}
   BP_OIDC_AUDIENCE: {{ .Values.oidc.audience | quote }}
-{{- if .Values.otel }}
-  BP_OTEL_HOST: {{ .Values.otel.host | quote }}
+{{- with (.Values.otel | default (dict)).host }}
+  BP_OTEL_HOST: {{ . | quote }}
 {{- end }}
 {{- if .Values.no_proxy }}
   NO_PROXY: {{ (join "," .Values.no_proxy) | quote }}

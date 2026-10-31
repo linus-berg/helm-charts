@@ -1,0 +1,18 @@
+{{- /* Collectors and processors, see _workers.tpl. */}}
+{{- $seen := dict }}
+{{- range $type, $workers := dict "collector" .Values.collectors "processor" .Values.processors }}
+{{- range $workers }}
+{{- $ctx := dict "root" $ "worker" . "type" $type }}
+{{- $name := include "backpack.worker.name" $ctx }}
+{{- if hasKey $seen $name }}
+{{- fail (printf "%s is defined twice, every %s needs its own id" (include "backpack.worker.key" $ctx) $type) }}
+{{- end }}
+{{- $_ := set $seen $name true }}
+---
+{{- if eq (include "backpack.worker.kind" $ctx) "Deployment" }}
+{{ include "backpack.worker.deployment" $ctx }}
+{{- else }}
+{{ include "backpack.worker.statefulset" $ctx }}
+{{- end }}
+{{- end }}
+{{- end }}

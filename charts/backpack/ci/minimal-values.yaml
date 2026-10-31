@@ -1,0 +1,13 @@
+# The least a working install needs, everything else from values.yaml.
+rabbitmq:
+  host: rabbitmq
+  user: backpack
+  pass: secret
+collectors:
+  - id: http
+    image: ghcr.io/linus-berg/backpack/collector/http
+    replicas: 1
+processors:
+  - id: npm
+    image: ghcr.io/linus-berg/backpack/processor/npm
+    replicas: 1

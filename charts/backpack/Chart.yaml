@@ -1,24 +1,27 @@
 apiVersion: v2
 name: backpack
-description: A Helm chart for running backpack
-
-# A chart can be either an 'application' or a 'library' chart.
-#
-# Application charts are a collection of templates that can be packaged into versioned archives
-# to be deployed.
-#
-# Library charts provide useful utilities or functions for the chart developer. They're included as
-# a dependency of application charts to inject those utilities and functions into the rendering
-# pipeline. Library charts do not define any templates and therefore cannot be deployed.
+description: Backpack, an engine for hoarding artifacts in disconnected environments. Deploys the API, GUI, gateway, collector router, collectors and processors.
 type: application
-
-# This is the chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
-# Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.0.10
-
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application. Versions are not expected to
-# follow Semantic Versioning. They should reflect the version the application is using.
-# It is recommended to use it with quotes.
-appVersion: "1.0.0"
+# Chart version, bump it on every change. Pushing a new version to main
+# publishes it.
+version: 0.1.0
+# Backpack image tag used when backpack.version is not set: the latest build
+# of github.com/linus-berg/backpack, which publishes master-<commit>. Bump it
+# together with gui.version in values.yaml.
+appVersion: "master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201"
+# policy/v1 PodDisruptionBudgets.
+kubeVersion: ">=1.21.0-0"
+home: https://linus-berg.github.io/backpack/
+icon: https://raw.githubusercontent.com/linus-berg/backpack/master/images/backpack-256.png
+sources:
+  - https://github.com/linus-berg/backpack
+  - https://github.com/linus-berg/backpack-gui
+  - https://github.com/linus-berg/helm-charts
+maintainers:
+  - name: linus-berg
+    url: https://github.com/linus-berg
+keywords:
+  - artifacts
+  - mirror
+  - air-gapped
+  - offline

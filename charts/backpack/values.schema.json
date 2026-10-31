@@ -1,0 +1,290 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Values of the Backpack chart",
+  "description": "See README.md for what every key does.",
+  "type": "object",
+  "definitions": {
+    "credential": {
+      "type": ["string", "number"]
+    },
+    "tag": {
+      "type": ["string", "number"]
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "stringMap": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "intOrPercent": {
+      "type": ["integer", "string"]
+    },
+    "podSettings": {
+      "type": "object",
+      "properties": {
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              { "type": "string", "minLength": 1 },
+              { "type": "object", "required": ["name"], "properties": { "name": { "type": "string", "minLength": 1 } } }
+            ]
+          }
+        },
+        "podSecurityContext": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "resources": { "type": "object" },
+        "nodeSelector": { "$ref": "#/definitions/stringMap" },
+        "tolerations": { "type": "array", "items": { "type": "object" } },
+        "affinity": { "type": "object" }
+      }
+    },
+    "workload": {
+      "allOf": [
+        { "$ref": "#/definitions/podSettings" },
+        {
+          "properties": {
+            "replicas": { "$ref": "#/definitions/replicas" },
+            "livenessProbe": { "type": "object" },
+            "readinessProbe": { "type": "object" },
+            "startupProbe": { "type": "object" },
+            "podDisruptionBudget": {
+              "type": "object",
+              "properties": {
+                "minAvailable": { "$ref": "#/definitions/intOrPercent" },
+                "maxUnavailable": { "$ref": "#/definitions/intOrPercent" },
+                "unhealthyPodEvictionPolicy": { "enum": ["IfHealthyBudget", "AlwaysAllow"] }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "component": {
+      "allOf": [
+        { "$ref": "#/definitions/workload" },
+        {
+          "properties": {
+            "image": { "type": "string", "minLength": 1 },
+            "tag": { "$ref": "#/definitions/tag" }
+          }
+        }
+      ]
+    },
+    "exposedComponent": {
+      "allOf": [
+        { "$ref": "#/definitions/component" },
+        {
+          "properties": {
+            "port": { "$ref": "#/definitions/port" },
+            "loadBalancerIP": { "type": "string" },
+            "service": {
+              "type": "object",
+              "properties": {
+                "type": { "enum": ["ClusterIP", "NodePort", "LoadBalancer"] },
+                "annotations": { "$ref": "#/definitions/stringMap" },
+                "nodePort": { "$ref": "#/definitions/port" }
+              }
+            },
+            "ingress": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "className": { "type": "string" },
+                "annotations": { "$ref": "#/definitions/stringMap" },
+                "hosts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "host": { "type": "string" },
+                      "paths": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "path": { "type": "string", "pattern": "^/" },
+                            "pathType": { "enum": ["Prefix", "Exact", "ImplementationSpecific"] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "tls": { "type": "array", "items": { "type": "object" } }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "worker": {
+      "allOf": [
+        { "$ref": "#/definitions/workload" },
+        {
+          "type": "object",
+          "required": ["id", "image"],
+          "properties": {
+            "id": {
+              "description": "Resource name suffix, <type>-<id>. A DNS label of at most 42 characters, so StatefulSet pod labels stay within 63.",
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+              "maxLength": 42
+            },
+            "image": { "type": "string", "minLength": 1 },
+            "tag": { "$ref": "#/definitions/tag" },
+            "kind": { "enum": ["Deployment", "StatefulSet"] },
+            "strategy": {
+              "type": "object",
+              "properties": {
+                "type": { "enum": ["Recreate", "RollingUpdate"] },
+                "rollingUpdate": { "type": ["object", "null"] }
+              }
+            },
+            "env": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "value": { "type": ["string", "number", "boolean", "null"] },
+                  "valueFrom": { "type": "object" }
+                },
+                "not": { "required": ["value", "valueFrom"] }
+              }
+            },
+            "extraVolumes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "mountPath"],
+                "properties": {
+                  "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63 },
+                  "mountPath": { "type": "string", "pattern": "^/" },
+                  "type": { "enum": ["persistentVolumeClaim", "emptyDir"] },
+                  "size": { "type": ["string", "integer"] },
+                  "storageClass": { "type": "string" },
+                  "accessMode": { "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany", "ReadWriteOncePod"] }
+                }
+              }
+            },
+            "persistentVolumeClaimRetentionPolicy": {
+              "type": "object",
+              "properties": {
+                "whenDeleted": { "enum": ["Retain", "Delete"] },
+                "whenScaled": { "enum": ["Retain", "Delete"] }
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "properties": {
+    "backpack": {
+      "type": "object",
+      "properties": {
+        "version": { "$ref": "#/definitions/tag" },
+        "log": {
+          "type": "object",
+          "properties": { "level": { "type": "string" } }
+        }
+      }
+    },
+    "http_proxy": { "type": "string" },
+    "no_proxy": { "type": "array", "items": { "type": "string" } },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ip", "hostnames"],
+        "properties": {
+          "ip": { "type": "string", "minLength": 1 },
+          "hostnames": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        }
+      }
+    },
+    "ca_certificates": { "type": "string" },
+    "oidc": {
+      "type": "object",
+      "properties": {
+        "authority": { "type": "string" },
+        "audience": { "type": "string" }
+      }
+    },
+    "otel": {
+      "type": "object",
+      "properties": { "host": { "type": "string" } }
+    },
+    "existingSecrets": {
+      "type": "object",
+      "properties": {
+        "common": { "type": "string" },
+        "api": { "type": "string" },
+        "gateway": { "type": "string" },
+        "collector": { "type": "string" }
+      }
+    },
+    "defaults": { "$ref": "#/definitions/podSettings" },
+    "api": {
+      "allOf": [
+        { "$ref": "#/definitions/exposedComponent" },
+        { "properties": { "host": { "type": "string" } } }
+      ]
+    },
+    "gui": {
+      "allOf": [
+        { "$ref": "#/definitions/exposedComponent" },
+        { "properties": { "version": { "$ref": "#/definitions/tag" } } }
+      ]
+    },
+    "ingestion": { "$ref": "#/definitions/component" },
+    "router": { "$ref": "#/definitions/component" },
+    "rabbitmq": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "user": { "$ref": "#/definitions/credential" },
+        "pass": { "$ref": "#/definitions/credential" },
+        "api": { "type": "string" }
+      }
+    },
+    "mongo": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": ["integer", "string"] },
+        "user": { "$ref": "#/definitions/credential" },
+        "pass": { "$ref": "#/definitions/credential" }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "user": { "$ref": "#/definitions/credential" },
+        "pass": { "$ref": "#/definitions/credential" }
+      }
+    },
+    "s3": {
+      "type": "object",
+      "properties": {
+        "endpoint": { "type": "string" },
+        "region": { "type": "string" },
+        "bucket": { "type": "string" },
+        "accessKey": { "$ref": "#/definitions/credential" },
+        "secretKey": { "$ref": "#/definitions/credential" }
+      }
+    },
+    "collectors": { "type": "array", "items": { "$ref": "#/definitions/worker" } },
+    "processors": { "type": "array", "items": { "$ref": "#/definitions/worker" } }
+  }
+}

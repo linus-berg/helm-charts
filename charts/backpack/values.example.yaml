@@ -1,34 +1,36 @@
-# Default values for Backpack-Helm.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Example values for a development cluster (minikube) with RabbitMQ, MongoDB,
+# Redis, MinIO and Keycloak running on the host. values.yaml has the defaults
+# of every key and README.md documents them.
 
 backpack:
-  version: &backpack_version "fe27ea40be7f5e6d4d358ffbd7215681b5b7cd2c"
+  # Defaults to the chart's appVersion. Set it to run another build, images
+  # are tagged master-<commit>:
+  #version: master-a02a51f4aeafc15eadb5d35fbb7b9ac2f51c1201
   log:
     level: Information
 
-#http_proxy: "127.0.0.1"
-
+#http_proxy: "http://proxy.example.com:3128"
 #no_proxy:
-  #- google.com
-  #- github.com
+  #- example.com
 
-hosts:
-  - ip: 127.1.1.1
-    hostnames: 
-      - foo.bar
-  - ip: 127.1.1.2
-    hostnames: 
-      - foo.foo
+#hosts:
+  #- ip: 192.168.49.1
+    #hostnames:
+      #- minio.local
 
-# CA
-ca_certificates: |
-  test
+# CA bundle replacing the images' bundle, e.g. your internal CA plus the
+# public roots:
+#ca_certificates: |
+  #-----BEGIN CERTIFICATE-----
+  #...
+  #-----END CERTIFICATE-----
 
 # Pod settings for every workload that doesn't set its own. A workload's own
 # value replaces the default; set it to {} or [] to opt out. Probes and
 # podDisruptionBudget have no default. See "Pod settings" in README.md.
 #defaults:
+  #imagePullSecrets:
+    #- my-registry
   #podSecurityContext:
     #fsGroup: 1000
   #securityContext:
@@ -63,14 +65,21 @@ api:
       #port: 8080
   #podDisruptionBudget:
     #maxUnavailable: 1
+  # Behind an ingress controller instead of a LoadBalancer:
+  #service:
+    #type: ClusterIP
+  #ingress:
+    #enabled: true
+    #className: nginx
+    #hosts:
+      #- host: api.backpack.local
 
-# Ingestion
+# Gateway
 ingestion:
   replicas: 4
 
 # GUI
 gui:
-  version: "c0cdfeacab02641551e9bd0758427b7fb4578424"
   loadBalancerIP: 192.168.49.101
   port: 8080
   replicas: 4
@@ -107,24 +116,27 @@ s3:
   endpoint: "host.minikube.internal:9000"
   bucket: "backpack"
 
-##
+# Instead of the credentials above, use Secrets you manage (see
+# "Credentials" in README.md):
+#existingSecrets:
+  #common: backpack-common
+  #api: backpack-api
+  #gateway: backpack-api
+  #collector: backpack-s3
+
+# Every entry runs the latest image (backpack.version) unless it sets its own
+# tag.
 collectors:
+  # Streams to S3, needs no volume.
   - id: "http"
     image: "ghcr.io/linus-berg/backpack/collector/http"
-    tag: *backpack_version
     replicas: 1
-    extraVolumes:
-      - name: data
-        mountPath: /data
-        storageClass: standard
-        size: 10Gi
   # Git keeps a `git clone --mirror` of every repository under /data and only
   # fetches what changed on the next collect. As a StatefulSet each replica
   # gets its own claim that survives restarts, rollouts and uninstalls.
   # See "Collector storage" in README.md before changing replicas or volumes.
   - id: "git"
     image: "ghcr.io/linus-berg/backpack/collector/git"
-    tag: *backpack_version
     kind: StatefulSet
     replicas: 1
     #persistentVolumeClaimRetentionPolicy:
@@ -135,54 +147,44 @@ collectors:
         mountPath: /data
         storageClass: standard
         size: 10Gi
+  # Copies images registry to registry, needs no volume.
   - id: "container"
     image: "ghcr.io/linus-berg/backpack/collector/container"
-    tag: *backpack_version
     replicas: 1
-    extraVolumes:
-      - name: data
-        mountPath: /data
-        storageClass: standard
-        size: 10Gi
+    # The registry images are copied into. Every collect fails without it.
+    #env:
+      #- name: BP_COLLECTOR_CONTAINER_REGISTRY
+        #value: registry.example.com
 
 processors:
+  # The cache is a ReadWriteOnce claim, so the chart rolls this Deployment
+  # out with the Recreate strategy.
   - id: "npm"
     image: "ghcr.io/linus-berg/backpack/processor/npm"
-    tag: *backpack_version
     replicas: 1
     extraVolumes:
       - name: cache
         mountPath: /root/.npm
         storageClass: standard
         size: 5Gi
-    imagePullSecrets: 
-      - test
-    env:
-      - name: TEST
-        value: BLEH
   - id: nuget
     image: ghcr.io/linus-berg/backpack/processor/nuget
-    tag: *backpack_version
     replicas: 1
-  
+
   - id: pypi
     image: ghcr.io/linus-berg/backpack/processor/pypi
-    tag: *backpack_version
     replicas: 1
-    
+
   - id: container
     image: ghcr.io/linus-berg/backpack/processor/container
-    tag: *backpack_version
     replicas: 1
-    
+
   - id: rancher
     image: ghcr.io/linus-berg/backpack/processor/rancher
-    tag: *backpack_version
     replicas: 1
-    
+
   - id: helm
     image: ghcr.io/linus-berg/backpack/processor/helm
-    tag: *backpack_version
     replicas: 1
     # Read from a Secret, so the keys stay out of the values and the pod spec:
     # kubectl create secret generic artifacthub --from-literal=id=... --from-literal=secret=...
@@ -197,23 +199,15 @@ processors:
           secretKeyRef:
             name: artifacthub
             key: secret
-    
+
   - id: jetbrains
-    image: ghcr.io/linus-berg/backpack/processor/jetbrains
-    tag: *backpack_version
+    image: ghcr.io/linus-berg/backpack/processor/jetbrains-plugins
     replicas: 1
-    
+
   - id: jetbrains-ide
-    image: ghcr.io/linus-berg/backpack/processor/jetbrains/ide
-    tag: *backpack_version
+    image: ghcr.io/linus-berg/backpack/processor/jetbrains-ide
     replicas: 1
-  
-  - id: php
-    image: ghcr.io/linus-berg/backpack/processor/php
-    tag: *backpack_version
-    replicas: 1
-  
+
   - id: github-releases
-    image: ghcr.io/linus-berg/backpack/processor/github/releases
-    tag: *backpack_version
+    image: ghcr.io/linus-berg/backpack/processor/github-releases
     replicas: 1

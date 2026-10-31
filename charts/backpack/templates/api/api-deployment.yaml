@@ -1,8 +1,9 @@
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backpack-api
+  labels:
+    {{- include "backpack.labels" (dict "root" $ "name" "backpack-api" "component" "api") | nindent 4 }}
 spec:
   replicas: {{ .Values.api.replicas }}
   revisionHistoryLimit: 3
@@ -12,54 +13,33 @@ spec:
   template:
     metadata:
       labels:
-        app: backpack-api
+        {{- include "backpack.podLabels" (dict "root" $ "name" "backpack-api" "component" "api") | nindent 8 }}
       annotations:
-        backpack/version: {{ .Values.backpack.version }}
+        backpack/version: {{ .Values.api.tag | default (include "backpack.version" $) | quote }}
         checksum/config: {{ include (print $.Template.BasePath "/common-configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") . | sha256sum }}
         checksum/api-config: {{ include (print $.Template.BasePath "/api/api-configmap.yaml") . | sha256sum }}
         checksum/api-secret: {{ include (print $.Template.BasePath "/api/api-secret.yaml") . | sha256sum }}
         checksum/ca-certificates: {{ include (print $.Template.BasePath "/ca-certificates-configmap.yaml") . | sha256sum }}
     spec:
-      {{- with include "backpack.pod.settings" (dict "root" $ "workload" .Values.api) | trim }}
+      {{- with include "backpack.pod.spec" (dict "root" $ "workload" .Values.api "hostAliases" true "ca" true) | trim }}
       {{- . | nindent 6 }}
       {{- end }}
-      {{- if $.Values.hosts }}
-      hostAliases:
-        {{- range $.Values.hosts }}
-        - ip: {{ .ip | quote }}
-          hostnames:
-          {{- range .hostnames }}
-            - {{ . | quote }}
-          {{- end }}
-        {{- end }}
-      {{- end }}
-      {{- if $.Values.ca_certificates }}
-      volumes:
-        - name: ca-certificates-config-volume
-          configMap:
-            name: ca-certificates
-      {{- end }}
       containers:
-        - image: ghcr.io/linus-berg/backpack/integration/api:{{ .Values.backpack.version }} 
-          name: backpack-api
-          {{- with include "backpack.container.settings" (dict "root" $ "workload" .Values.api) | trim }}
+        - name: backpack-api
+          image: {{ include "backpack.image" (dict "root" $ "workload" .Values.api "key" "api") }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.api "ca" true) | trim }}
           {{- . | nindent 10 }}
-          {{- end }}
-          {{- if $.Values.ca_certificates }}
-          volumeMounts:
-            - mountPath: /etc/ssl/certs/ca-certificates.crt
-              name: ca-certificates-config-volume
-              subPath: ca-certificates.crt
           {{- end }}
           envFrom:
             - configMapRef:
                 name: common-env-config
             - secretRef:
-                name: common-env-secret
+                name: {{ include "backpack.secretName" (dict "root" $ "secret" "common") }}
             - configMapRef:
                 name: api-env-config
             - secretRef:
-                name: api-env-secret
+                name: {{ include "backpack.secretName" (dict "root" $ "secret" "api") }}
           ports:
-          - containerPort: 80
+            - name: http
+              containerPort: 8080
