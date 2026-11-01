@@ -26,8 +26,8 @@ backpack:
   #-----END CERTIFICATE-----
 
 # Pod settings for every workload that doesn't set its own. A workload's own
-# value replaces the default; set it to {} or [] to opt out. Probes and
-# podDisruptionBudget have no default. See "Pod settings" in README.md.
+# value replaces the default; set it to {} or [] to opt out.
+# podDisruptionBudget has no default. See "Pod settings" in README.md.
 #defaults:
   #imagePullSecrets:
     #- my-registry
@@ -50,6 +50,15 @@ oidc:
   audience: "backpack"
 
 # API
+# Every workload is probed on its /healthz/live and /healthz/ready endpoints.
+# See "Probes" in README.md.
+#probes:
+  # false for Backpack images from before the health endpoints.
+  #enabled: true
+  #startup:
+    # Ten minutes to start on slow nodes.
+    #failureThreshold: 120
+
 api:
   host: "localhost"
   loadBalancerIP: 192.168.49.100
@@ -60,9 +69,10 @@ api:
   #resources:
     #limits:
       #memory: 1Gi
+  # Replaces the chart's readiness probe (see probes below):
   #readinessProbe:
-    #tcpSocket:
-      #port: 8080
+    #periodSeconds: 5
+    #httpGet: {path: /healthz/ready, port: http}
   #podDisruptionBudget:
     #maxUnavailable: 1
   # Behind an ingress controller instead of a LoadBalancer:

@@ -137,11 +137,35 @@ volumes:
 {{- end -}}
 
 {{/*
+The chart's probes of a workload, as YAML: livenessProbe, readinessProbe and
+startupProbe, each an httpGet with the timing of .Values.probes.<kind>.
+Empty when probes.enabled is false. Backpack services answer
+/healthz/live (startup and liveness) and /healthz/ready (readiness).
+Expects a dict with "root", "port" (name of the container port) and,
+for the GUI, "path" (one path for every probe).
+*/}}
+{{- define "backpack.probes" -}}
+{{- $probes := .root.Values.probes | default (dict) -}}
+{{- if $probes.enabled -}}
+{{- $ctx := . -}}
+{{- $out := dict -}}
+{{- range $key, $spec := dict "startupProbe" (list "startup" "/healthz/live") "livenessProbe" (list "liveness" "/healthz/live") "readinessProbe" (list "readiness" "/healthz/ready") -}}
+{{- $timing := get $probes (index $spec 0) | default (dict) | deepCopy -}}
+{{- $httpGet := dict "path" ($ctx.path | default (index $spec 1)) "port" $ctx.port -}}
+{{- $_ := set $out $key (merge (dict "httpGet" $httpGet) (omit $timing "httpGet" "tcpSocket" "exec" "grpc")) -}}
+{{- end -}}
+{{- toYaml $out -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Container-level fields shared by every workload: securityContext and
-resources (falling back to .Values.defaults), the probes (which do not, since
-they depend on the image) and volumeMounts. Expects a dict with "root",
-"workload", "ca" (true to mount .Values.ca_certificates) and an optional list
-of further "volumeMounts".
+resources (falling back to .Values.defaults), the probes and volumeMounts.
+A workload's own livenessProbe, readinessProbe or startupProbe replaces the
+chart's (see backpack.probes); {} drops it. Expects a dict with "root",
+"workload", "ca" (true to mount .Values.ca_certificates), an optional list
+of further "volumeMounts" and an optional "probes" (the output of
+backpack.probes, as a dict).
 */}}
 {{- define "backpack.container.spec" -}}
 {{- $ctx := . -}}
@@ -151,8 +175,10 @@ of further "volumeMounts".
   {{- . | nindent 2 }}
 {{- end }}
 {{- end }}
+{{- $workload := $ctx.workload | default (dict) }}
+{{- $probes := $ctx.probes | default (dict) }}
 {{- range $key := list "livenessProbe" "readinessProbe" "startupProbe" }}
-{{- with get ($ctx.workload | default (dict)) $key }}
+{{- with ternary (get $workload $key) (get $probes $key) (hasKey $workload $key) }}
 {{ $key }}:
   {{- toYaml . | nindent 2 }}
 {{- end }}

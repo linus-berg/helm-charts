@@ -81,6 +81,33 @@ defaults:
   tolerations: []
   affinity: {}
 
+# Probes of every workload that doesn't set its own. Backpack services answer
+# GET /healthz/live (running) and /healthz/ready (can reach what it needs:
+# RabbitMQ, plus MongoDB, Redis, S3 or the OIDC provider where used). The API
+# serves them on its HTTP port, the gateway, router, collectors and
+# processors on port 8080. The GUI is probed on /. See "Health checks" in
+# README.md. A workload's own livenessProbe, readinessProbe or startupProbe
+# replaces the chart's; {} drops it.
+probes:
+  # false sets no probes, e.g. for Backpack images from before the health
+  # endpoints.
+  enabled: true
+  # Timing of each probe; any probe field except the handler.
+  startup:
+    periodSeconds: 5
+    timeoutSeconds: 5
+    # Five minutes to start before the pod is restarted.
+    failureThreshold: 60
+  liveness:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    # The readiness checks time out after 3 seconds and run in parallel.
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
 api:
   image: ghcr.io/linus-berg/backpack/integration/api
   # Empty means backpack.version.
@@ -116,15 +143,15 @@ api:
   #   limits:
   #     memory: 1Gi
   # readinessProbe:
-  #   tcpSocket:
-  #     port: 8080
+  #   periodSeconds: 5
+  #   httpGet: {path: /healthz/ready, port: http}
   # podDisruptionBudget:
   #   maxUnavailable: 1
 
 gui:
   image: ghcr.io/linus-berg/backpack/gui
   # Image tag of the GUI, which is versioned separately from backpack.version.
-  version: "c7d4ea5ef82a83f30742090a70c86881103d7444"
+  version: "3ce6a19a9fdf80a3f0788c59408e093c41a2021a"
   replicas: 1
   # Service port, forwarded to container port 80.
   port: 80

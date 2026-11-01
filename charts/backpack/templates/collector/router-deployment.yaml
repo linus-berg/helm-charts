@@ -26,7 +26,8 @@ spec:
       containers:
         - name: collector-router
           image: {{ include "backpack.image" (dict "root" $ "workload" .Values.router "key" "router") }}
-          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.router) | trim }}
+          {{- $probes := include "backpack.probes" (dict "root" $ "port" "health") | fromYaml }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.router "probes" $probes) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
           envFrom:
@@ -34,3 +35,7 @@ spec:
                 name: common-env-config
             - secretRef:
                 name: {{ include "backpack.secretName" (dict "root" $ "secret" "common") }}
+          ports:
+            # /healthz/live and /healthz/ready (BP_HEALTH_PORT).
+            - name: health
+              containerPort: 8080

@@ -53,6 +53,20 @@ To pull from a mirror, set `image` of `api`, `gui`, `ingestion` and `router`,
 and of every collector and processor, plus `defaults.imagePullSecrets` if
 the mirror needs credentials.
 
+### Upgrading to 0.3.0
+
+- Every workload now has startup, liveness and readiness probes on the
+  health endpoints Backpack services serve (see [Probes](#probes)), and the
+  gateway, router, collectors and processors declare their health port
+  (`health`, 8080). Every pod restarts once during the upgrade.
+- The endpoints exist in images from `master-<commit>` builds that include
+  them, such as the chart's `appVersion`. If `backpack.version` or a
+  workload's `tag` pins an older build, set `probes.enabled: false` (or that
+  workload's probes to `{}`) until you move to a newer one; otherwise its
+  startup probe fails and the pod is restarted over and over.
+- A workload's own `livenessProbe`, `readinessProbe` or `startupProbe` still
+  wins, so existing probes keep working.
+
 ### Upgrading to 0.1.0
 
 - The chart now has a `values.yaml`, so keys you never set get its defaults,
@@ -115,6 +129,8 @@ restart the pods yourself after changing them.
 | `existingSecrets.*` | Secrets you manage, see [Credentials](#credentials). | unset |
 | `credentials` | Credentials for private sources, keyed by host, see [Private sources](#private-sources). | unset |
 | `defaults.*` | Pod settings for every workload that doesn't set its own, see [Pod settings](#pod-settings). | unset |
+| `probes.enabled` | Probe every workload on its health endpoints, see [Probes](#probes). | `true` |
+| `probes.startup`, `probes.liveness`, `probes.readiness` | Timing of those probes: any probe field except the handler. | see [Probes](#probes) |
 
 ### Credentials
 
@@ -386,7 +402,7 @@ you set them.
 | `securityContext` | Container `securityContext`. | yes |
 | `resources` | Container `resources`. | yes |
 | `nodeSelector`, `tolerations`, `affinity` | Pod scheduling. | yes |
-| `livenessProbe`, `readinessProbe`, `startupProbe` | Container probes. | no |
+| `livenessProbe`, `readinessProbe`, `startupProbe` | Container probes. Each replaces the chart's probe of that kind; `{}` drops it. | no, see [Probes](#probes) |
 | `podDisruptionBudget` | Creates a PodDisruptionBudget with this spec, named after the workload: `minAvailable` or `maxUnavailable` (not both), optionally `unhealthyPodEvictionPolicy`. The selector is filled in by the chart. | no |
 
 A workload's own value replaces the default as a whole, it is not merged
@@ -405,7 +421,8 @@ api:
     requests: {cpu: 250m, memory: 256Mi}
     limits: {memory: 1Gi}
   readinessProbe:
-    tcpSocket: {port: 8080}
+    periodSeconds: 5
+    httpGet: {path: /healthz/ready, port: http}
   podDisruptionBudget:
     maxUnavailable: 1
 
@@ -413,16 +430,71 @@ gui:
   tolerations: []   # schedule the GUI anywhere
 ```
 
-- **Probes.** The chart sets none. The API listens on port 8080 and the GUI
-  on port 80, both named `http`. The chart declares no ports for the
-  gateway, router, collectors or processors, so probe those with `exec`
-  unless you know the port they listen on.
+- **Probes.** The chart probes every workload (see [Probes](#probes)). The
+  API listens on port 8080 and the GUI on port 80, both named `http`; the
+  gateway, router, collectors and processors serve their health endpoints on
+  port 8080, named `health`.
 - **Disruption budgets.** Prefer `maxUnavailable: 1`. A `minAvailable` equal
   to the replica count (e.g. `minAvailable: 1` with one replica) blocks every
   eviction, so node drains hang until it is removed.
 - **Security contexts.** Check what the image expects before setting
   `runAsNonRoot` or `readOnlyRootFilesystem`. The npm processor, for
   example, caches in `/root/.npm` and the API writes logs to `/logs/`.
+
+### Probes
+
+Backpack services answer two endpoints, which the chart probes unless
+`probes.enabled` is false:
+
+- `GET /healthz/live`: 200 once the service has started. It checks no
+  dependencies, so an outage of e.g. MongoDB doesn't restart every pod. Used
+  by the startup and liveness probes.
+- `GET /healthz/ready`: 200 when the service can reach what it needs, 503
+  when it can't. Used by the readiness probe.
+
+| Workload | Port | `/healthz/ready` checks |
+| :--- | :--- | :--- |
+| `api` | `http` (8080) | RabbitMQ, MongoDB, Redis; the OIDC provider and the RabbitMQ management API can only degrade it, which still counts as ready |
+| `ingestion` (the gateway) | `health` (8080) | RabbitMQ, MongoDB, Redis |
+| `router`, processors, the container and rsync collectors | `health` (8080) | RabbitMQ |
+| Collectors that write to S3 (HTTP, Git, Hugging Face, Wget, Docker archive) | `health` (8080) | RabbitMQ, S3 |
+| `gui` | `http` (80) | none: the GUI is probed on `/` |
+
+The gateway, router, collectors and processors are only ready while they
+consume from RabbitMQ, so `kubectl get pods` shows them `0/1` while RabbitMQ
+is unreachable; they recover on their own once it is back. The response
+body names the failing check:
+
+```bash
+kubectl port-forward deploy/backpack-gateway 8080:health
+curl -s localhost:8080/healthz/ready
+```
+
+The probes are `httpGet` probes with this timing, which `probes.<kind>`
+changes for every workload. The values are merged with the defaults, so
+setting one field keeps the others.
+
+| Probe | `periodSeconds` | `timeoutSeconds` | `failureThreshold` | Effect |
+| :--- | :--- | :--- | :--- | :--- |
+| `startup` | 5 | 5 | 60 | Five minutes to start before the pod is restarted. |
+| `liveness` | 10 | 5 | 3 | Restarted after 30 seconds without an answer. |
+| `readiness` | 10 | 5 | 3 | Not ready after 30 seconds of failing checks. The checks time out after 3 seconds and run in parallel. |
+
+```yaml
+probes:
+  startup:
+    failureThreshold: 120   # ten minutes for slow nodes
+
+processors:
+  - id: npm
+    image: ghcr.io/linus-berg/backpack/processor/npm
+    replicas: 1
+    # A workload's own probe replaces the chart's, {} drops it.
+    readinessProbe: {}
+```
+
+The health port follows `BP_HEALTH_PORT`, which the chart leaves at its
+default of 8080. Don't set it in a worker's `env`, or its probes miss.
 
 ## Collector storage
 

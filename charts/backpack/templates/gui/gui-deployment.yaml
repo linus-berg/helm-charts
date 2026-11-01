@@ -24,7 +24,9 @@ spec:
         - name: backpack-gui
           {{- /* The GUI is versioned separately, so its tag is gui.version. */}}
           image: {{ include "backpack.image" (dict "root" $ "workload" (dict "image" .Values.gui.image "tag" (required ".Values.gui.version must be set" .Values.gui.version)) "key" "gui") }}
-          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.gui) | trim }}
+          {{- /* nginx serving the app; / answers as long as it runs. */}}
+          {{- $probes := include "backpack.probes" (dict "root" $ "port" "http" "path" "/") | fromYaml }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.gui "probes" $probes) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
           ports:

@@ -27,7 +27,8 @@ spec:
       containers:
         - name: backpack-gateway
           image: {{ include "backpack.image" (dict "root" $ "workload" .Values.ingestion "key" "ingestion") }}
-          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.ingestion) | trim }}
+          {{- $probes := include "backpack.probes" (dict "root" $ "port" "health") | fromYaml }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.ingestion "probes" $probes) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
           envFrom:
@@ -39,3 +40,7 @@ spec:
                 name: gateway-env-config
             - secretRef:
                 name: {{ include "backpack.secretName" (dict "root" $ "secret" "gateway") }}
+          ports:
+            # /healthz/live and /healthz/ready (BP_HEALTH_PORT).
+            - name: health
+              containerPort: 8080

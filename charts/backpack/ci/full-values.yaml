@@ -29,6 +29,12 @@ credentials:
     tokenSecret:
       name: ghe-token
       key: token
+probes:
+  enabled: true
+  startup:
+    failureThreshold: 120
+  readiness:
+    initialDelaySeconds: 5
 defaults:
   imagePullSecrets:
     - registry-a
@@ -173,6 +179,8 @@ processors:
   - id: npm
     image: ghcr.io/linus-berg/backpack/processor/npm
     replicas: 1
+    # Drops the chart's liveness probe.
+    livenessProbe: {}
     extraVolumes:
       - name: cache
         mountPath: /root/.npm

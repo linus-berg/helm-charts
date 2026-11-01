@@ -68,6 +68,19 @@
         "affinity": { "type": "object" }
       }
     },
+    "probeTiming": {
+      "description": "Probe fields except the handler, which the chart sets.",
+      "type": "object",
+      "not": { "anyOf": [{ "required": ["httpGet"] }, { "required": ["tcpSocket"] }, { "required": ["exec"] }, { "required": ["grpc"] }] },
+      "properties": {
+        "initialDelaySeconds": { "type": "integer", "minimum": 0 },
+        "periodSeconds": { "type": "integer", "minimum": 1 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1 },
+        "successThreshold": { "type": "integer", "minimum": 1 },
+        "failureThreshold": { "type": "integer", "minimum": 1 },
+        "terminationGracePeriodSeconds": { "type": "integer", "minimum": 1 }
+      }
+    },
     "workload": {
       "allOf": [
         { "$ref": "#/definitions/podSettings" },
@@ -269,6 +282,15 @@
       "additionalProperties": { "$ref": "#/definitions/hostCredential" }
     },
     "defaults": { "$ref": "#/definitions/podSettings" },
+    "probes": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "startup": { "$ref": "#/definitions/probeTiming" },
+        "liveness": { "$ref": "#/definitions/probeTiming" },
+        "readiness": { "$ref": "#/definitions/probeTiming" }
+      }
+    },
     "api": {
       "allOf": [
         { "$ref": "#/definitions/exposedComponent" },

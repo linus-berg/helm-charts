@@ -28,7 +28,8 @@ spec:
       containers:
         - name: backpack-api
           image: {{ include "backpack.image" (dict "root" $ "workload" .Values.api "key" "api") }}
-          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.api "ca" true) | trim }}
+          {{- $probes := include "backpack.probes" (dict "root" $ "port" "http") | fromYaml }}
+          {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.api "ca" true "probes" $probes) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
           envFrom:

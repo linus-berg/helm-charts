@@ -126,7 +126,8 @@ spec:
   containers:
     - name: {{ $name }}
       image: {{ include "backpack.image" (dict "root" $root "workload" $worker "key" (include "backpack.worker.key" .)) }}
-      {{- with include "backpack.container.spec" (dict "root" $root "workload" $worker "ca" true "volumeMounts" $mounts) | trim }}
+      {{- $probes := include "backpack.probes" (dict "root" $root "port" "health") | fromYaml }}
+      {{- with include "backpack.container.spec" (dict "root" $root "workload" $worker "ca" true "volumeMounts" $mounts "probes" $probes) | trim }}
       {{- . | nindent 6 }}
       {{- end }}
       {{- with $env }}
@@ -144,6 +145,10 @@ spec:
         - secretRef:
             name: {{ include "backpack.secretName" (dict "root" $root "secret" "collector") }}
         {{- end }}
+      ports:
+        # /healthz/live and /healthz/ready (BP_HEALTH_PORT).
+        - name: health
+          containerPort: 8080
 {{- end -}}
 
 {{/*
@@ -205,7 +210,8 @@ stay as it is or upgrades fail.
 {{- define "backpack.worker.statefulset" -}}
 {{- $name := include "backpack.worker.name" . -}}
 {{- $worker := .worker -}}
-# Headless service governing the StatefulSet, workers expose no ports.
+# Headless service governing the StatefulSet. Workers serve no traffic,
+# only their health endpoint, which the kubelet probes on the pod itself.
 apiVersion: v1
 kind: Service
 metadata:
