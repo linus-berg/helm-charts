@@ -20,6 +20,8 @@ spec:
         checksum/secret: {{ include (print $.Template.BasePath "/common-secret.yaml") . | sha256sum }}
         checksum/api-config: {{ include (print $.Template.BasePath "/api/api-configmap.yaml") . | sha256sum }}
         checksum/api-secret: {{ include (print $.Template.BasePath "/api/api-secret.yaml") . | sha256sum }}
+        checksum/collector-config: {{ include (print $.Template.BasePath "/collector/collector-configmap.yaml") . | sha256sum }}
+        checksum/collector-secret: {{ include (print $.Template.BasePath "/collector/collector-secret.yaml") . | sha256sum }}
         checksum/ca-certificates: {{ include (print $.Template.BasePath "/ca-certificates-configmap.yaml") . | sha256sum }}
     spec:
       {{- with include "backpack.pod.spec" (dict "root" $ "workload" .Values.api "hostAliases" true "ca" true) | trim }}
@@ -32,6 +34,26 @@ spec:
           {{- with include "backpack.container.spec" (dict "root" $ "workload" .Values.api "ca" true "probes" $probes) | trim }}
           {{- . | nindent 10 }}
           {{- end }}
+          env:
+            {{- /* The collectors' S3 settings, so the Status page can show
+                   whether the storage is reachable. Only these keys, not the
+                   rest of collector-env-config. */}}
+            {{- range $key := list "BP_S3_ENDPOINT" "BP_S3_REGION" "BP_S3_BUCKET" }}
+            - name: {{ $key }}
+              valueFrom:
+                configMapKeyRef:
+                  name: collector-env-config
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key := list "BP_S3_ACCESS_KEY" "BP_S3_SECRET_KEY" }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "backpack.secretName" (dict "root" $ "secret" "collector") }}
+                  key: {{ $key }}
+                  {{- /* Without them the API just doesn't check S3. */}}
+                  optional: true
+            {{- end }}
           envFrom:
             - configMapRef:
                 name: common-env-config

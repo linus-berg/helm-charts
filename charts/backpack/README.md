@@ -53,6 +53,14 @@ To pull from a mirror, set `image` of `api`, `gui`, `ingestion` and `router`,
 and of every collector and processor, plus `defaults.imagePullSecrets` if
 the mirror needs credentials.
 
+### Upgrading to 0.4.0
+
+- The API now gets the S3 settings (`BP_S3_*`) from `collector-env-config`
+  and the collector Secret, and shows S3 next to RabbitMQ, MongoDB, Redis
+  and the OIDC provider on the GUI's Status page. It only checks that the
+  bucket exists. With `existingSecrets.collector`, the API reads the same
+  two keys from your Secret.
+
 ### Upgrading to 0.3.0
 
 - Every workload now has startup, liveness and readiness probes on the
@@ -142,7 +150,7 @@ other settings in the matching `*-env-config` ConfigMaps:
 | `common-env-secret` | `BP_RABBIT_MQ_PASS`, and `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, `https_proxy` when `http_proxy` is set | everything except the GUI |
 | `api-env-secret` | `BP_REDIS_PASS`, `BP_MONGO_STR` | API |
 | `gateway-env-secret` | `BP_REDIS_PASS`, `BP_MONGO_STR` | gateway |
-| `collector-env-secret` | `BP_S3_ACCESS_KEY`, `BP_S3_SECRET_KEY` | collectors |
+| `collector-env-secret` | `BP_S3_ACCESS_KEY`, `BP_S3_SECRET_KEY` | collectors, and the API for the S3 indicator on the Status page |
 | `credentials-secret` | `credentials.json` and a `token-<host>` per inline token, see [Private sources](#private-sources). Only created when `credentials` is set. | workers with `mountCredentials: true` |
 
 Two things are not covered by that:
@@ -325,7 +333,7 @@ All four also take the [pod settings](#pod-settings).
 | `rabbitmq.api` | RabbitMQ management API URL. | API |
 | `mongo.host`, `mongo.port`, `mongo.user`, `mongo.pass` | Combined into `BP_MONGO_STR`. `user` and `pass` are percent-encoded by the chart, so give them unencoded. `port` defaults to `27017`. | API, gateway |
 | `redis.host`, `redis.user`, `redis.pass` | Redis connection. | API, gateway |
-| `s3.endpoint`, `s3.accessKey`, `s3.secretKey`, `s3.region`, `s3.bucket` | Object storage the collectors upload to. | collectors |
+| `s3.endpoint`, `s3.accessKey`, `s3.secretKey`, `s3.region`, `s3.bucket` | Object storage the collectors upload to. The API gets these five settings too, to show on the Status page whether the bucket is reachable; it never writes to it. | collectors, API |
 
 ### Collectors and processors
 
@@ -454,7 +462,7 @@ Backpack services answer two endpoints, which the chart probes unless
 
 | Workload | Port | `/healthz/ready` checks |
 | :--- | :--- | :--- |
-| `api` | `http` (8080) | RabbitMQ, MongoDB, Redis; the OIDC provider and the RabbitMQ management API can only degrade it, which still counts as ready |
+| `api` | `http` (8080) | MongoDB, Redis, its MassTransit bus; RabbitMQ itself, the RabbitMQ management API, S3 and the OIDC provider can only degrade it, which still counts as ready |
 | `ingestion` (the gateway) | `health` (8080) | RabbitMQ, MongoDB, Redis |
 | `router`, processors, the container and rsync collectors | `health` (8080) | RabbitMQ |
 | Collectors that write to S3 (HTTP, Git, Hugging Face, Wget, Docker archive) | `health` (8080) | RabbitMQ, S3 |

@@ -151,7 +151,7 @@ api:
 gui:
   image: ghcr.io/linus-berg/backpack/gui
   # Image tag of the GUI, which is versioned separately from backpack.version.
-  version: "3ce6a19a9fdf80a3f0788c59408e093c41a2021a"
+  version: "3c32c808c792af277efb526c6ff7e16adf8f7518"
   replicas: 1
   # Service port, forwarded to container port 80.
   port: 80
